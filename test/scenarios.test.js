@@ -22,6 +22,8 @@ T('2015 진로선택 → 성취도 (기하)', eq(C.classifySubject('기하').typ
 T('2015 체육예술 → 성취도 (운동과 건강)', eq(C.classifySubject('운동과 건강').type, 'ach'));
 T('2022 공통 → 5등급 (공통국어1)', eq(C.classifySubject('공통국어1').type, '5'));
 T('2022 융합선택 → 성취도 (윤리문제 탐구)', eq(C.classifySubject('윤리문제 탐구').type, 'ach'));
+T('2015 진로선택 → 성취도 (프로그래밍)', eq(C.classifySubject('프로그래밍').type, 'ach')
+  && eq(C.classifySubject('프로그래밍').curr, '2015'));
 T('동명 과목은 2015 우선 (스포츠 생활 → 2015)', eq(C.classifySubject('스포츠 생활').curr, '2015'));
 T('미등재 과목 → 인식 실패 라벨', C.classifySubject('알수없는과목').type === null
   && C.classifySubject('알수없는과목').label.indexOf('실패') >= 0);
