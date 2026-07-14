@@ -1,0 +1,4 @@
+# 테스트 실행 산출물 (스크린샷 등 — 학생 정보 포함 가능)
+test/shot-*.png
+test/node_modules/
+test/package*.json
