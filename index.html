@@ -195,6 +195,21 @@ table.editgrid .idc{color:var(--faint);font-size:.78rem}
 @media(min-width:980px){.editcols.two{columns:2}}
 .editcols table{break-inside:avoid-column}
 .empty{color:var(--faint);text-align:center;padding:60px 0;font-size:.95rem}
+
+.rankwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.rankclass{margin-bottom:26px}
+.rankclass h2{margin:0 2px 10px}
+table.ranktbl{min-width:520px}
+table.ranktbl th{white-space:nowrap}
+table.ranktbl td{white-space:nowrap}
+table.ranktbl td.rk{font-weight:800;color:var(--accent-ink)}
+table.ranktbl td.nm{font-weight:600;min-width:70px;white-space:normal}
+table.ranktbl td.idc{color:var(--muted)}
+table.ranktbl td.sub2{color:var(--faint)}
+tr.rankrow{cursor:pointer;transition:background .12s}
+tr.rankrow:hover{background:var(--wash)}
+tr.rankrow:hover td.nm{color:var(--accent-ink)}
+.gchip{display:inline-block;font-weight:800;border-radius:6px;padding:2px 9px;min-width:44px;text-align:center}
 </style>
 </head>
 <body>
@@ -212,6 +227,7 @@ table.editgrid .idc{color:var(--faint);font-size:.78rem}
     <button class="on" data-tab="data">데이터</button>
     <button data-tab="student">학생 조회</button>
     <button data-tab="subject">과목별 등급표</button>
+    <button data-tab="rank">석차 순위</button>
   </nav>
 </header>
 
@@ -248,6 +264,11 @@ table.editgrid .idc{color:var(--faint);font-size:.78rem}
 <section class="tab" id="tab-subject">
   <div class="chips" id="subjChips"></div>
   <div id="subjBody"><div class="empty">점수 자료를 먼저 적재해 주세요.</div></div>
+</section>
+
+<section class="tab" id="tab-rank">
+  <div class="chips" id="rankChips"></div>
+  <div id="rankBody"><div class="empty">점수 자료를 먼저 적재해 주세요.</div></div>
 </section>
 
 </main>
@@ -1324,6 +1345,134 @@ function areaAnalysis(trRecords, myGrades, semGpa){
     +'<p class="footnote" style="margin-top:10px">3-1 예상은 이번 학기 9등급 과목 기준이며, 강점·취약은 이번 학기 전체 평균등급 대비 −1.0등급 이상 / +1.5등급 이상 차이 나는 영역입니다. 3학년 과목은 1~2학년과 과목명이 달라 같은 교과영역끼리 비교합니다.</p>';
 }
 
+/* ---------- 석차 순위 ---------- */
+var rankScope = 'all';
+
+/* 한 학생의 예상 평균등급(9등급 상대평가 과목·학점 가중)과 평균T(전 유형) */
+function studentSummary(id){
+  var cr=0, wt=0, count=0;   // 9등급 예상 평균등급
+  var tcr=0, twt=0;          // 평균T (성취도·5등급 포함)
+  Object.keys(state.subjects).forEach(function(subj){
+    var v = viewOf(subj); if(!v) return;
+    var meta = state.subjects[subj], p = v.pool;
+    if(p.ach){
+      var e = p.entries.find(function(x){return x.id===id;});
+      if(e && p.stats.std>0){ tcr+=meta.credit; twt+=meta.credit*(50+10*(e.score-p.stats.avg)/p.stats.std); }
+      return;
+    }
+    var me = p.result.byId[id];
+    if(!me) return;
+    if(p.stats.std>0){ tcr+=meta.credit; twt+=meta.credit*(50+10*(me.score-p.stats.avg)/p.stats.std); }
+    if(meta.type==='9'){ cr+=meta.credit; wt+=meta.credit*me.grade; count++; }
+  });
+  if(cr<=0) return null;
+  return { gpa:wt/cr, credits:cr, count:count, t:(tcr>0?twt/tcr:null) };
+}
+function cmpGpa(a,b){ return a.gpa-b.gpa || a.ban-b.ban || a.no-b.no; }
+/* 오름차순 정렬된 목록에 동점 공동석차(1,2,2,4…) 부여 → {id:석차} */
+function ranksOf(list){
+  var m = {};
+  list.forEach(function(x,i){
+    m[x.id] = (i>0 && Math.abs(x.gpa-list[i-1].gpa)<1e-9) ? m[list[i-1].id] : i+1;
+  });
+  return m;
+}
+function meanGpa(list){ if(!list.length) return 0; var s=0; list.forEach(function(x){s+=x.gpa;}); return s/list.length; }
+
+function rankRows(list, primary, o){
+  return list.map(function(x){
+    var gi = Math.max(1, Math.min(9, Math.round(x.gpa)));
+    var c = '<td class="rk num">'+primary[x.id]+'</td>'
+      + '<td class="num idc">'+sid4(x.ban,x.no)+'</td>'
+      + '<td class="nm">'+esc(x.name||'—')+'</td>';
+    if(o.showBan) c += '<td class="num">'+x.ban+'반</td>';
+    if(o.extra) c += '<td class="num sub2">'+o.extra[x.id]+'</td>';
+    c += '<td><span class="gchip num" style="background:var(--g'+gi+');color:var(--b'+gi+')">'+x.gpa.toFixed(2)+'</span></td>'
+      + '<td class="num">'+(x.t!==null?x.t.toFixed(1):'—')+'</td>'
+      + '<td class="num sub2">'+x.credits+'</td>';
+    return '<tr class="rankrow" data-id="'+esc(x.id)+'">'+c+'</tr>';
+  }).join('');
+}
+
+function renderRankTab(){
+  var ctrl = document.getElementById('rankChips');
+  var body = document.getElementById('rankBody');
+  if(!ctrl || !body) return;
+
+  var totStu = Object.keys(state.students).length;
+  var all = [];
+  Object.keys(state.students).forEach(function(id){
+    var sum = studentSummary(id); if(!sum) return;
+    var s = state.students[id];
+    all.push({id:id, ban:s.ban, no:s.no, name:s.name||'', gpa:sum.gpa, credits:sum.credits, count:sum.count, t:sum.t});
+  });
+  if(!all.length){
+    ctrl.innerHTML = '';
+    body.innerHTML = '<div class="empty">순위를 낼 9등급 상대평가 과목 점수가 없습니다. 데이터 탭에서 점수 자료를 적재해 주세요.</div>';
+    return;
+  }
+
+  ctrl.innerHTML = [['all','전체 순위'],['class','반별 순위']].map(function(o){
+    return '<button data-scope="'+o[0]+'" class="'+(rankScope===o[0]?'on':'')+'">'+o[1]+'</button>';
+  }).join('');
+  ctrl.querySelectorAll('button').forEach(function(b){
+    b.addEventListener('click', function(){ rankScope=b.dataset.scope; renderRankTab(); });
+  });
+
+  /* 전체 석차 & 반별 석차 미리 계산 */
+  var overall = all.slice().sort(cmpGpa);
+  var overallRank = ranksOf(overall);
+  var byBan = {};
+  all.forEach(function(x){ (byBan[x.ban]=byBan[x.ban]||[]).push(x); });
+  var classRank = {};
+  Object.keys(byBan).forEach(function(ban){
+    var lst = byBan[ban].slice().sort(cmpGpa);
+    var r = ranksOf(lst);
+    Object.keys(r).forEach(function(id){ classRank[id]=r[id]; });
+  });
+
+  var excluded = totStu - all.length;
+  var h = '';
+
+  if(rankScope==='all'){
+    var best = overall[0];
+    h += '<div class="kpis">'
+      + '<div class="kpi"><div class="v num">'+overall.length+'명</div><div class="k">순위 산정 인원 (9등급 과목 보유)</div></div>'
+      + '<div class="kpi"><div class="v num">'+meanGpa(overall).toFixed(2)+'</div><div class="k">전체 평균등급</div></div>'
+      + '<div class="kpi"><div class="v num"><em>'+best.gpa.toFixed(2)+'</em></div><div class="k">최상위 '+esc(best.name||'—')+' ('+best.ban+'반 '+best.no+'번)</div></div>'
+      + '</div>';
+    h += '<div class="rankwrap"><table class="plain ranktbl">'
+      + '<tr><th>순위</th><th>학번</th><th>이름</th><th>반</th><th>반석차</th><th>예상 평균등급</th><th>평균T</th><th>반영학점</th></tr>'
+      + rankRows(overall, overallRank, {showBan:true, extra:classRank})
+      + '</table></div>';
+  }else{
+    Object.keys(byBan).sort(function(a,b){return a-b;}).forEach(function(ban){
+      var lst = byBan[ban].slice().sort(cmpGpa);
+      h += '<div class="rankclass"><h2>'+ban+'반 <span class="sub">'+lst.length+'명 · 반 평균등급 '+meanGpa(lst).toFixed(2)+'</span></h2>'
+        + '<div class="rankwrap"><table class="plain ranktbl">'
+        + '<tr><th>반석차</th><th>학번</th><th>이름</th><th>전체석차</th><th>예상 평균등급</th><th>평균T</th><th>반영학점</th></tr>'
+        + rankRows(lst, classRank, {showBan:false, extra:overallRank})
+        + '</table></div></div>';
+    });
+  }
+
+  var notes = ['예상 평균등급은 9등급 상대평가 과목만 학점 가중으로 산입하며, 낮을수록 상위입니다',
+    '동점은 공동 석차로 표기합니다', '수강 과목 구성이 학생마다 달라 등급 단순 비교에는 한계가 있습니다 (평균T 병기)'];
+  if(excluded>0) notes.push('9등급 과목 점수가 없어 순위에서 제외된 학생 '+excluded+'명');
+  h += '<p class="footnote">'+notes.join(' · ')+'.</p>';
+
+  body.innerHTML = h;
+  body.querySelectorAll('.rankrow').forEach(function(r){
+    r.addEventListener('click', function(){
+      switchTab('student');
+      var q = document.getElementById('stuQuery'); if(q) q.value='';
+      var sg = document.getElementById('stuSugg'); if(sg) sg.innerHTML='';
+      renderStudent(r.dataset.id);
+      window.scrollTo(0,0);
+    });
+  });
+}
+
 /* ---------- 과목별 등급표 (+ 편집) ---------- */
 var curSubject = null;
 var editOpen = false, editShowAll = false;
@@ -1693,6 +1842,7 @@ function renderAll(){
   renderValidation();
   if(curStudentId) renderStudent(curStudentId);
   renderSubjectTab();
+  renderRankTab();
 }
 
 load();
