@@ -424,8 +424,11 @@ function subjTable(items, inc, sp) {
     return (a.year * 10 + a.sem) - (b.year * 10 + b.sem) ||
            a.area.localeCompare(b.area) || a.subject.localeCompare(b.subject);
   }).forEach(function (it) {
-    var kindL = it.kind === 'general' ? '공통·일반' : it.kind === 'career' ? '진로선택' :
-                it.kind === 'pass' ? '이수(P)' : '—';
+    /* 계열은 교육과정 구분을 먼저 보이고, 표에 없는 과목만 산출 방식으로 표기한다 */
+    var kindL = it.curr === 'common' ? '공통과목' : it.curr === 'general' ? '일반선택'
+              : it.curr === 'career' ? '진로선택'
+              : it.kind === 'general' ? '등급 산출' : it.kind === 'career' ? '성취도 산출'
+              : it.kind === 'pass' ? '이수(P)' : '—';
     h += '<tr class="' + (inc ? (/원점수/.test(it.basis) ? 'rawwin' : '') : 'excl') + '">' +
       '<td class="num">' + semLabel(it.year, it.sem) + '</td>' +
       '<td>' + esc(it.category || '—') + '</td>' +
@@ -515,7 +518,7 @@ function renderSubject() {
     r.univ.items.forEach(function (it) {
       var k = it.subject;
       if (!map[k]) map[k] = { subject: k, category: it.category, area: it.area, kind: it.kind,
-                              n: 0, inc: 0, warn: it.warn, autoLabel: it.autoLabel,
+                              curr: it.curr, n: 0, inc: 0, warn: it.warn, autoLabel: it.autoLabel,
                               common: it.common, sems: {} };
       map[k].n++;
       if (it.included) map[k].inc++;
@@ -531,8 +534,9 @@ function renderSubject() {
   var warnN = keys.filter(function (k) { return map[k].warn; }).length;
 
   var h = '<div class="card"><h2>과목 판정 점검 <span class="sub">자동 판정이 어긋난 과목을 여기서 바로잡습니다</span></h2>' +
-    '<p style="font-size:.84rem;color:var(--muted)">계열은 생기부 기재값으로 판정합니다 — 석차등급이 있으면 <b>공통·일반선택</b>, ' +
-    '성취도만 있으면 <b>진로선택</b>, P면 이수 과목입니다. 교과영역은 나이스 「교과」 열을 우선하고 비어 있을 때만 과목명으로 추론합니다. ' +
+    '<p style="font-size:.84rem;color:var(--muted)">계열은 <b>2015 개정 교육과정 과목표</b>로 확정합니다 — ' +
+    '공통과목 · 일반선택 · 진로선택이 과목명으로 정해지고, 표가 기대하는 성적(석차등급 · 성취도 · P)이 생기부에 없으면 ' +
+    '기재값대로 처리하되 「확인」을 붙입니다. 교과영역은 나이스 「교과」 열 → 교육과정 표 → 과목명 추론 순으로 판정합니다. ' +
     '두 값 모두 아래에서 과목 단위로 덮어쓸 수 있고, 설정은 이 컴퓨터에 저장됩니다.' +
     (warnN ? ' <b class="warnnote">확인이 필요한 과목 ' + warnN + '개가 위쪽에 있습니다.</b>' : '') + '</p></div>';
 
@@ -550,7 +554,7 @@ function renderSubject() {
       '<td class="r num">' + m.n + '건</td>' +
       '<td style="color:var(--muted);font-size:.8rem">' + esc(m.autoLabel) + '</td>' +
       '<td><select data-kind="' + esc(k) + '" class="' + (ko ? 'edited' : '') + '">' +
-        optTag('', '자동 (' + kindLabel(m.kind) + ')', ko) + optTag('general', '공통·일반선택', ko) +
+        optTag('', '자동 (' + kindLabel(m.kind, m.curr) + ')', ko) + optTag('general', '공통·일반선택', ko) +
         optTag('career', '진로선택·성취도', ko) + optTag('skip', '산출 제외', ko) + '</select></td>' +
       '<td><select data-area="' + esc(k) + '" class="' + (ao ? 'edited' : '') + '">' +
         optTag('', '자동 (' + m.area + ')', ao) +
@@ -582,7 +586,10 @@ function renderSubject() {
 function optTag(v, label, cur) {
   return '<option value="' + esc(v) + '"' + (cur === v ? ' selected' : '') + '>' + esc(label) + '</option>';
 }
-function kindLabel(k) {
+function kindLabel(k, curr) {
+  if (curr === 'common') return '공통과목';
+  if (curr === 'general') return '일반선택';
+  if (curr === 'career') return '진로선택';
   return k === 'general' ? '공통·일반선택' : k === 'career' ? '진로선택·성취도'
        : k === 'pass' ? '이수(P)' : '판정 불가';
 }
