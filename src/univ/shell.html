@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>대학별 교과 환산점수 비교</title>
+<script>
+<!--{{XLSX}}-->
+</script>
+<!-- 웹폰트는 오프라인 배포를 위해 제거 — 시스템 폰트 폴백 사용 -->
+<style>
+:root{
+  --bg:#faf9f7; --surface:#ffffff; --ink:#26221c; --muted:#8a8378; --faint:#b5aea2;
+  --line:#eceae4; --accent:#b45309; --accent-ink:#8a3e06; --wash:#f8efe2;
+  --up:#3a7d4f; --down:#9a3324; --upbg:#e6f0e6; --downbg:#f6e0da;
+  --g1:#dbe7f6;--g2:#e2ebf4;--g3:#e8eef1;--g4:#eaefe9;--g5:#f0eee2;
+  --g6:#f3ead9;--g7:#f4e3d2;--g8:#f2d9cb;--g9:#eecfc4;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:15px}
+body{background:var(--bg);color:var(--ink);
+  font-family:"Pretendard Variable",Pretendard,-apple-system,"Malgun Gothic",sans-serif;
+  line-height:1.55;-webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+
+header{padding:30px 0 0}
+.brand{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.brand h1{font-size:1.35rem;font-weight:800;letter-spacing:-.02em}
+.brand .ctx{color:var(--muted);font-size:.86rem}
+.brand .save{margin-left:auto;font-size:.78rem;color:var(--faint)}
+.premise{margin-top:10px;font-size:.8rem;color:var(--muted);max-width:860px}
+
+nav{display:flex;gap:26px;margin-top:22px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+nav button{background:none;border:0;font:inherit;font-size:.95rem;color:var(--muted);
+  padding:10px 2px 12px;cursor:pointer;position:relative}
+nav button.on{color:var(--accent-ink);font-weight:700}
+nav button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--accent)}
+nav button:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+
+main{padding:30px 0 70px}
+section.tab{display:none}
+section.tab.on{display:block}
+h2{font-size:1.02rem;font-weight:800;margin-bottom:14px}
+h2 .sub{font-weight:400;color:var(--muted);font-size:.82rem;margin-left:10px}
+h3{font-size:.92rem;font-weight:800;margin:24px 0 10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 22px;margin-bottom:18px}
+
+.drop{border:1.5px dashed var(--faint);border-radius:12px;background:var(--surface);
+  padding:34px 22px;text-align:center;color:var(--muted);cursor:pointer;transition:border-color .15s,background .15s}
+.drop.over{border-color:var(--accent);background:var(--wash)}
+.drop strong{color:var(--ink);font-weight:700}
+.drop .hint{font-size:.8rem;margin-top:6px;color:var(--faint)}
+.filelist{margin-top:16px;display:flex;flex-direction:column;gap:6px}
+.filerow{display:flex;gap:12px;align-items:baseline;font-size:.86rem;padding:8px 12px;
+  background:var(--surface);border:1px solid var(--line);border-radius:8px;flex-wrap:wrap}
+.filerow .tag{font-size:.72rem;font-weight:700;color:var(--accent-ink);background:var(--wash);
+  border-radius:5px;padding:2px 7px;white-space:nowrap}
+.filerow .tag.err{color:var(--down);background:var(--downbg)}
+.filerow .desc{color:var(--muted)}
+
+table.plain{width:100%;border-collapse:collapse;font-size:.86rem}
+table.plain th{text-align:left;font-weight:600;color:var(--muted);padding:7px 10px;
+  border-bottom:1px solid var(--line);font-size:.76rem;white-space:nowrap}
+table.plain td{padding:7px 10px;border-bottom:1px solid var(--line)}
+table.plain tr:last-child td{border-bottom:0}
+table.plain td.r,table.plain th.r{text-align:right}
+table.plain td.c,table.plain th.c{text-align:center}
+.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.tblwrap table.plain th{padding-left:14px;padding-right:14px}
+.tblwrap table.plain td{padding-left:14px;padding-right:14px}
+
+.btnrow{display:flex;gap:10px;margin-top:18px;flex-wrap:wrap}
+button.act{font:inherit;font-size:.86rem;font-weight:600;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink);border-radius:8px;padding:8px 16px;cursor:pointer}
+button.act:hover{border-color:var(--faint)}
+button.act.danger{color:var(--down)}
+button.act.small{font-size:.78rem;padding:6px 12px}
+
+.optgrid{display:flex;gap:26px;flex-wrap:wrap;align-items:flex-end}
+.optgrid .f label{display:block;font-size:.72rem;color:var(--muted);margin-bottom:4px}
+.optgrid select,.optgrid input{font:inherit;font-size:.9rem;padding:7px 10px;
+  border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.optgrid select:focus,.optgrid input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.opthint{font-size:.76rem;color:var(--faint);margin-top:12px;max-width:840px}
+
+.search{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.search input{font:inherit;font-size:1rem;padding:10px 14px;border:1px solid var(--line);
+  border-radius:10px;background:var(--surface);width:250px}
+.search input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.search .note{font-size:.8rem;color:var(--faint)}
+.sugg{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.sugg button{font:inherit;font-size:.82rem;border:1px solid var(--line);background:var(--surface);
+  border-radius:99px;padding:4px 12px;cursor:pointer;color:var(--muted)}
+.sugg button:hover{border-color:var(--accent);color:var(--accent-ink)}
+
+.stuhead{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:26px 0 4px}
+.stuhead .name{font-size:1.5rem;font-weight:800;letter-spacing:-.02em}
+.stuhead .meta{color:var(--muted);font-size:.88rem}
+
+.verdictbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;border-radius:12px;
+  padding:14px 20px;margin:16px 0 20px;border:1px solid var(--line);background:var(--surface)}
+.verdictbar.up{border-color:#bcd6bf;background:var(--upbg)}
+.verdictbar.down{border-color:#e2bdb4;background:var(--downbg)}
+.verdictbar .big{font-size:1.12rem;font-weight:800;letter-spacing:-.01em}
+.verdictbar .why{font-size:.84rem;color:var(--muted)}
+.verdictbar.up .why,.verdictbar.down .why{color:#5f5a52}
+
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:860px){.cmp{grid-template-columns:1fr}}
+.cmpbox{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 20px}
+.cmpbox.accent{border-color:#e5cf9e;background:#fffdf8}
+.cmpbox .h{font-size:.78rem;font-weight:700;color:var(--muted);letter-spacing:.02em}
+.cmpbox .h em{font-style:normal;color:var(--accent-ink)}
+.cmpbox .v{font-size:2.1rem;font-weight:800;letter-spacing:-.03em;margin-top:6px;line-height:1.15}
+.cmpbox .v small{font-size:.82rem;font-weight:500;color:var(--muted);margin-left:8px;letter-spacing:0}
+.cmpbox .sub{font-size:.84rem;color:var(--muted);margin-top:6px}
+.cmpbox .rk{font-size:1.02rem;font-weight:700;margin-top:10px}
+.cmpbox .rk b{font-size:1.25rem}
+.cmpbox .pct{color:var(--muted);font-size:.84rem;font-weight:500;margin-left:6px}
+.cmpbox .form{font-size:.74rem;color:var(--faint);margin-top:10px;font-variant-numeric:tabular-nums}
+
+.deltarow{display:flex;gap:34px;flex-wrap:wrap;margin:18px 0 6px}
+.deltarow .d .v{font-size:1.3rem;font-weight:800;letter-spacing:-.02em}
+.deltarow .d .k{font-size:.74rem;color:var(--muted)}
+.up{color:var(--up)}.down{color:var(--down)}.flat{color:var(--faint)}
+
+.factor{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.fbox{border:1px solid var(--line);border-radius:10px;padding:14px 16px;background:var(--bg)}
+.fbox .t{font-size:.78rem;font-weight:700;color:var(--muted)}
+.fbox .n{font-size:1.28rem;font-weight:800;letter-spacing:-.02em;margin-top:4px}
+.fbox .d{font-size:.79rem;color:var(--muted);margin-top:4px;line-height:1.5}
+
+.gchip{display:inline-block;font-weight:800;border-radius:6px;padding:1px 8px;min-width:34px;
+  text-align:center;font-size:.84rem}
+.pill{display:inline-block;font-size:.7rem;font-weight:700;border-radius:5px;padding:1px 7px}
+.pill.raw{color:#1f5b8a;background:#dbe9f4}
+.pill.grade{color:#6b5a2a;background:#f0eadb}
+.pill.ach{color:#5a3f7a;background:#eae3f4}
+.pill.same{color:var(--muted);background:#efeee9}
+.pill.off{color:var(--faint);background:#f2f1ec}
+.warnmark{display:inline-block;font-size:.7rem;color:#9a6b24;background:#f6ecd8;
+  border-radius:5px;padding:1px 7px;margin-left:6px}
+tr.excl td{color:var(--faint)}
+tr.rawwin td.usecell{font-weight:800;color:#1f5b8a}
+
+.rankctrl{display:flex;gap:18px;flex-wrap:wrap;align-items:flex-end;margin-bottom:18px}
+.rankctrl .f label{display:block;font-size:.72rem;color:var(--muted);margin-bottom:4px}
+.rankctrl select,.rankctrl input{font:inherit;font-size:.9rem;padding:7px 10px;
+  border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.rankctrl input{width:150px}
+.rankctrl select:focus,.rankctrl input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+table.ranktbl td{white-space:nowrap}
+table.ranktbl td.nm{font-weight:600;white-space:normal;min-width:70px}
+tr.rankrow{cursor:pointer;transition:background .12s}
+tr.rankrow:hover{background:var(--wash)}
+tr.rankrow:hover td.nm{color:var(--accent-ink)}
+td.dv{font-weight:700}
+
+.subjrow select{font:inherit;font-size:.82rem;padding:4px 8px;border:1px solid var(--line);
+  border-radius:7px;background:var(--surface)}
+.subjrow select.edited{border-color:#d8b26a;background:#fdf7ea}
+
+.conv{display:grid;grid-template-columns:1.6fr 1fr;gap:18px}
+@media(max-width:900px){.conv{grid-template-columns:1fr}}
+.formula{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:16px 18px;
+  font-size:.9rem;text-align:center;line-height:1.9}
+.formula .frac{display:inline-block;vertical-align:middle;text-align:center}
+.formula .frac .up{display:block;padding:0 10px 3px;border-bottom:1.5px solid var(--ink);color:var(--ink)}
+.formula .frac .dn{display:block;padding:3px 10px 0}
+.footnote{font-size:.78rem;color:var(--muted);margin-top:14px;max-width:900px;line-height:1.7}
+.empty{color:var(--faint);text-align:center;padding:60px 0;font-size:.95rem}
+.warnnote{color:#9a6b24;font-size:.82rem}
+.ok{color:var(--up);font-weight:700}
+</style>
+</head>
+<body>
+<header class="wrap">
+  <div class="brand">
+    <h1>대학별 교과 환산점수 비교</h1>
+    <span class="ctx">2015 개정 교육과정 · 학생부교과</span>
+    <span class="save" id="saveState"></span>
+  </div>
+  <p class="premise">나이스 <b>교과학습발달상황(생기부)</b> 파일을 적재하면, 단순 평균등급(학점×등급 합 ÷ 총 이수학점)과
+  대학별 반영 기준에 따른 환산점수를 각각 산출하고 같은 모집단 안에서의 석차·백분위를 비교해 유·불리를 판정합니다.
+  2015 개정 교육과정의 <b>공통 · 일반선택</b>과 <b>진로선택</b>을 구분한 뒤, 대학이 요강에서 요구하는 지표
+  (석차등급 · 원점수 · 성취도)를 그대로 적용합니다. 대학마다 산식의 구조가 다르므로 「산출 기준」 탭에서 적용 규칙을
+  확인하고, 과목별 계열 · 교과영역 자동 판정은 「과목 점검」 탭에서 직접 바로잡을 수 있습니다.</p>
+  <nav>
+    <button class="on" data-tab="data">데이터</button>
+    <button data-tab="student">학생 조회</button>
+    <button data-tab="rank">순위 비교</button>
+    <button data-tab="subject">과목 점검</button>
+    <button data-tab="spec">산출 기준</button>
+  </nav>
+</header>
+
+<main class="wrap">
+
+<section class="tab on" id="tab-data">
+  <div class="drop" id="drop">
+    <strong>나이스 생기부 파일을 여기에 끌어다 놓으세요</strong><br>
+    교과학습발달상황 — 반별로 여러 개를 한 번에 넣어도 됩니다.
+    <div class="hint">학년 전체를 넣을수록 석차 비교가 정확해집니다 · xlsx</div>
+    <input type="file" id="fileInput" accept=".xlsx" multiple hidden>
+  </div>
+  <div class="filelist" id="fileList"></div>
+
+  <div style="height:24px"></div>
+
+  <div class="card">
+    <h2>산출 옵션</h2>
+    <div class="optgrid">
+      <div class="f">
+        <label for="optUniv">대학 · 전형</label>
+        <select id="optUniv"></select>
+      </div>
+      <div class="f">
+        <label for="optFrom">반영 학기 (시작)</label>
+        <select id="optFrom"></select>
+      </div>
+      <div class="f">
+        <label for="optTo">반영 학기 (끝)</label>
+        <select id="optTo"></select>
+      </div>
+      <div class="f">
+        <label for="optPlain">비교군 · 단순 평균등급 범위</label>
+        <select id="optPlain">
+          <option value="all">전 교과 (일반적인 내신 등급)</option>
+          <option value="reflect">대학 반영교과만</option>
+        </select>
+      </div>
+    </div>
+    <p class="opthint" id="optHint"></p>
+  </div>
+
+  <div class="card" id="loadCard" hidden>
+    <h2>적재 현황</h2>
+    <div id="loadBody"></div>
+    <div class="btnrow">
+      <button class="act danger" id="btnReset">전체 데이터 초기화</button>
+    </div>
+  </div>
+</section>
+
+<section class="tab" id="tab-student">
+  <div class="search">
+    <input id="stuQuery" placeholder="학번 또는 이름 (예: 3117)" autocomplete="off">
+    <span class="note">학번은 학년·반·번호 4자리입니다. 3학년 1반 17번 → 3117</span>
+  </div>
+  <div class="sugg" id="stuSugg"></div>
+  <div id="stuBody"><div class="empty">생기부를 적재한 뒤 학번이나 이름으로 학생을 찾아보세요.</div></div>
+</section>
+
+<section class="tab" id="tab-rank">
+  <div id="rankCtrl"></div>
+  <div id="rankBody"><div class="empty">생기부를 먼저 적재해 주세요.</div></div>
+</section>
+
+<section class="tab" id="tab-subject">
+  <div id="subjBody"><div class="empty">생기부를 먼저 적재해 주세요.</div></div>
+</section>
+
+<section class="tab" id="tab-spec">
+  <div id="specBody"></div>
+</section>
+
+</main>
+
+<script>
+<!--{{SIMCORE}}-->
+</script>
+<script>
+<!--{{UNIVCORE}}-->
+</script>
+<script>
+<!--{{APP}}-->
+</script>
+</body>
+</html>
