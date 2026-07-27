@@ -119,6 +119,9 @@ button.act.small{font-size:.78rem;padding:6px 12px}
 .cmpbox .rk b{font-size:1.25rem}
 .cmpbox .pct{color:var(--muted);font-size:.84rem;font-weight:500;margin-left:6px}
 .cmpbox .form{font-size:.74rem;color:var(--faint);margin-top:10px;font-variant-numeric:tabular-nums}
+.tiebreak{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line);font-size:.8rem;color:var(--muted)}
+.tiebreak .tb{font-size:.68rem;font-weight:700;color:var(--accent-ink);background:var(--wash);
+  border-radius:5px;padding:1px 6px;margin-right:6px}
 
 .deltarow{display:flex;gap:34px;flex-wrap:wrap;margin:18px 0 6px}
 .deltarow .d .v{font-size:1.3rem;font-weight:800;letter-spacing:-.02em}
@@ -215,6 +218,7 @@ td.dv{font-weight:700}
         <label for="optUniv">대학 · 전형</label>
         <select id="optUniv"></select>
       </div>
+      <div class="f" id="optVariantWrap" hidden></div>
       <div class="f">
         <label for="optFrom">반영 학기 (시작)</label>
         <select id="optFrom"></select>
