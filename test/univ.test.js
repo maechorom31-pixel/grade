@@ -502,6 +502,293 @@ eq('외대는 공통과목까지 반영해 학점이 더 많다', hufsSame.credi
 eq('  외대 반영 학점 = 31', hufsSame.credits, 31);
 eq('  가천대 반영 학점 = 20', gu.credits, 20);
 
+/* ═════════ 16. 숭실대 — 규격 확정(계열) · 점수표 ═════════ */
+section('16. 숭실대 — 계열별 규격 확정');
+const SSU = k => U.resolve('ssu', k);
+eq('인문계열 반영교과', SSU('inmun').areas.join(','), '국어,수학,영어,사회');
+eq('  가중치 35/15/35/15', JSON.stringify(SSU('inmun').weights),
+   JSON.stringify({ '국어': 35, '수학': 15, '영어': 35, '사회': 15 }));
+eq('경상계열 가중치 20/30/35/15', JSON.stringify(SSU('gyeongsang').weights),
+   JSON.stringify({ '국어': 20, '수학': 30, '영어': 35, '사회': 15 }));
+eq('자유전공학부(인문) 가중치 30/20/30/20', JSON.stringify(SSU('jayu-in').weights),
+   JSON.stringify({ '국어': 30, '수학': 20, '영어': 30, '사회': 20 }));
+eq('자연계열 반영교과 (사회·한국사 미반영)', SSU('jayeon').areas.join(','), '국어,수학,영어,과학');
+eq('  가중치 15/35/25/25', JSON.stringify(SSU('jayeon').weights),
+   JSON.stringify({ '국어': 15, '수학': 35, '영어': 25, '과학': 25 }));
+eq('예체능은 공통·일반선택 100%', SSU('yeche').generalPct, 100);
+eq('  진로선택 미반영', SSU('yeche').careerPct, 0);
+eq('교과우수자는 공통·일반선택 80%', SSU('inmun').generalPct, 80);
+eq('  진로선택 20%', SSU('inmun').careerPct, 20);
+eq('알 수 없는 계열은 첫 변형으로 폴백', SSU('없는계열').variantKey, 'inmun');
+[[1, 10.0], [2, 9.5], [3, 9.0], [4, 8.5], [5, 8.0], [6, 7.0], [7, 5.0], [8, 3.0], [9, 0]]
+  .forEach(([g, v]) => eq(`${g}등급 → ${v}점`, SSU('inmun').gradeConv[g - 1], v));
+const sv = (k, o) => U.evalRecord(rec(Object.assign({ credit: 3 }, o)), SSU(k), OPT);
+eq('진로선택 A → 1등급 → 10.0', sv('inmun', { category: '국어', subject: '고전 읽기', ach: 'A' }).use, 10.0);
+eq('진로선택 B → 2등급 → 9.5', sv('inmun', { category: '국어', subject: '고전 읽기', ach: 'B' }).use, 9.5);
+eq('진로선택 C → 3등급 → 9.0', sv('inmun', { category: '국어', subject: '고전 읽기', ach: 'C' }).use, 9.0);
+eq('예체능은 진로선택을 아예 제외',
+   sv('yeche', { category: '국어', subject: '고전 읽기', ach: 'A' }).reason, '이 전형은 진로선택 미반영');
+eq('자연계열에서 사회 교과는 반영교과 아님',
+   sv('jayeon', { category: '사회(역사/도덕 포함)', subject: '생활과 윤리', grade: 2 }).reason,
+   '반영교과 아님 (사회)');
+eq('인문계열에서 과학 교과는 반영교과 아님',
+   sv('inmun', { category: '과학', subject: '물리학Ⅰ', grade: 2 }).reason, '반영교과 아님 (과학)');
+eq('인문계열은 한국사를 사회로 반영',
+   sv('inmun', { category: '한국사', subject: '한국사', grade: 2 }).included, true);
+eq('숭실대는 공통과목도 반영',
+   sv('inmun', { category: '국어', subject: '국어', grade: 1 }).included, true);
+
+/* ═════════ 17. 숭실대 종합 시나리오 (손계산 대조) ═════════ */
+section('17. 숭실대 인문계열 종합 시나리오 (손계산 대조)');
+/*  공통·일반선택 (교과별 이수단위 가중평균 → 교과 가중치로 합산 → 80점 환산)
+      국어: 국어 4학점 1등급(10.0) + 문학 4학점 3등급(9.0)      → (40+36)/8 = 9.5
+      수학: 수학 4학점 2등급(9.5)  + 미적분 4학점 4등급(8.5)    → (38+34)/8 = 9.0
+      영어: 영어 4학점 2등급(9.5)  + 영어Ⅰ 4학점 2등급(9.5)     → 9.5
+      사회: 통합사회 3학점 3등급(9.0) + 한국사 3학점 5등급(8.0) → (27+24)/6 = 8.5
+      가중합 = (9.5×35 + 9.0×15 + 9.5×35 + 8.5×15) / 100
+             = (332.5 + 135 + 332.5 + 127.5) / 100 = 927.5/100 = 9.275
+      공통·일반선택 환산점수 = 9.275 / 10 × 80 = 74.2
+    진로선택 (교과 구분 없이 한 덩어리, 3과목 → 상한 20%)
+      고전 읽기 3학점 A(10.0) + 심화 국어 3학점 B(9.5) + 여행지리 2학점 A(10.0)
+      → (30 + 28.5 + 20) / 8 = 78.5/8 = 9.8125
+      진로선택 환산점수 = 9.8125 / 10 × 20 = 19.625
+    최종 = 74.2 + 19.625 = 93.825                                            */
+const S_STU = [
+  rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 1, raw: 95, ach: 'A' }),
+  rec({ year: 2, sem: 1, category: '국어', subject: '문학', credit: 4, grade: 3, raw: 84, ach: 'B' }),
+  rec({ year: 1, sem: 1, category: '수학', subject: '수학', credit: 4, grade: 2, raw: 90, ach: 'A' }),
+  rec({ year: 2, sem: 1, category: '수학', subject: '미적분', credit: 4, grade: 4, raw: 78, ach: 'B' }),
+  rec({ year: 1, sem: 1, category: '영어', subject: '영어', credit: 4, grade: 2, raw: 91, ach: 'A' }),
+  rec({ year: 2, sem: 1, category: '영어', subject: '영어Ⅰ', credit: 4, grade: 2, raw: 89, ach: 'A' }),
+  rec({ year: 1, sem: 2, category: '사회(역사/도덕 포함)', subject: '통합사회', credit: 3, grade: 3, raw: 85, ach: 'B' }),
+  rec({ year: 2, sem: 1, category: '한국사', subject: '한국사', credit: 3, grade: 5, raw: 72, ach: 'C' }),
+  rec({ year: 3, sem: 1, category: '국어', subject: '고전 읽기', credit: 3, raw: 92, ach: 'A' }),
+  rec({ year: 3, sem: 1, category: '국어', subject: '심화 국어', credit: 3, raw: 85, ach: 'B' }),
+  rec({ year: 3, sem: 1, category: '사회(역사/도덕 포함)', subject: '여행지리', credit: 2, raw: 94, ach: 'A' }),
+  rec({ year: 2, sem: 2, category: '과학', subject: '물리학Ⅰ', credit: 3, grade: 6, raw: 62, ach: 'C' }),
+  rec({ year: 1, sem: 2, category: '체육', subject: '체육', credit: 2, ach: 'A' })
+];
+const su = U.computeUniv(S_STU, SSU('inmun'), OPT);
+const ag = {}; su.areaGroups.forEach(g => ag[g.key] = g);
+eq('국어교과 평균 9.5', ag['국어'].avg, 9.5);
+eq('수학교과 평균 9.0', ag['수학'].avg, 9.0);
+eq('영어교과 평균 9.5', ag['영어'].avg, 9.5);
+eq('사회교과 평균 8.5 (통합사회 + 한국사)', ag['사회'].avg, 8.5);
+eq('  사회교과 학점 6 (한국사가 사회로 합류)', ag['사회'].credits, 6);
+near('가중합 = 9.275', su.generalAvg, 9.275);
+near('공통·일반선택 환산점수 = 74.2', su.generalScore, 74.2);
+eq('진로선택 3과목 → 상한 20%', su.careerCap, 20);
+eq('  진로선택 과목 수', su.careerCount, 3);
+near('  진로선택 평균 = 9.8125', su.careerAvg, 9.8125);
+near('  진로선택 환산점수 = 19.625', su.careerScore, 19.625);
+near('최종 교과 점수 = 93.825', su.score, 93.825);
+eq('총점 만점 = 100 (상한 20 적용)', su.scoreMax, 100);
+eq('물리학Ⅰ은 인문계열 반영교과 아님',
+   su.excluded.find(x => x.subject === '물리학Ⅰ').reason, '반영교과 아님 (과학)');
+eq('체육도 제외', su.excluded.find(x => x.subject === '체육').reason, '반영교과 아님 (체예)');
+near('환산등급 상당 = 93.825/10 → 8.5~9.0 구간', u_equiv(su.score), 3 + (9.0 - 9.3825) / (9.0 - 8.5));
+function u_equiv(sc) { return U.equivGrade(sc, SSU('inmun')); }
+
+section('17-b. 진로선택 최대 취득 비율 제한');
+/* 같은 공통·일반선택 성적에 진로선택만 줄여 본다. 전부 A(10.0)라면
+     3과목 이상 → 20 · 2과목 → 18 · 1과목 → 16 · 0과목 → 0 */
+function ssuWith(careerSubjects) {
+  const base = S_STU.filter(r => !['고전 읽기', '심화 국어', '여행지리'].includes(r.subject));
+  const extra = careerSubjects.map(s =>
+    rec({ year: 3, sem: 1, category: '국어', subject: s, credit: 3, raw: 95, ach: 'A' }));
+  return U.computeUniv(base.concat(extra), SSU('inmun'), OPT);
+}
+let x = ssuWith(['고전 읽기', '심화 국어', '실용 국어']);
+eq('3과목 전부 A → 상한 20, 진로 점수 20', [x.careerCap, x.careerScore].join('/'), '20/20');
+near('  총점 = 74.2 + 20 = 94.2', x.score, 94.2);
+eq('  총점 만점 100', x.scoreMax, 100);
+x = ssuWith(['고전 읽기', '심화 국어']);
+eq('2과목 전부 A → 상한 18, 진로 점수 18', [x.careerCap, x.careerScore].join('/'), '18/18');
+near('  총점 = 92.2 (만점이 98로 내려감)', x.score, 92.2);
+eq('  총점 만점 98', x.scoreMax, 98);
+x = ssuWith(['고전 읽기']);
+eq('1과목 A → 상한 16, 진로 점수 16', [x.careerCap, x.careerScore].join('/'), '16/16');
+near('  총점 = 90.2 (만점이 96으로 내려감)', x.score, 90.2);
+eq('  총점 만점 96', x.scoreMax, 96);
+x = ssuWith([]);
+eq('0과목 → 상한 0', x.careerCap, 0);
+near('  총점 = 74.2 (만점이 80으로 내려감)', x.score, 74.2);
+eq('  총점 만점 80', x.scoreMax, 80);
+eq('상한 손실은 요인 분해에 기록', U.analyze(ssuWith(['고전 읽기']), SSU('inmun')).capLoss, 4);
+
+section('17-c. 계열을 바꾸면 같은 학생도 점수가 달라진다');
+/* 자연계열: 국어 9.5×15 + 수학 9.0×35 + 영어 9.5×25 + 과학 7.0×25 (물리학Ⅰ 6등급)
+   = (142.5 + 315 + 237.5 + 175)/100 = 870/100 = 8.70 → 8.70/10×80 = 69.6
+   진로선택은 국어 2과목만 반영교과 (여행지리는 사회 → 자연계열 미반영)
+   → 2과목, (30 + 28.5)/6 = 9.75 → 9.75/10×18 = 17.55 → 총 87.15 */
+const suJ = U.computeUniv(S_STU, SSU('jayeon'), OPT);
+const agJ = {}; suJ.areaGroups.forEach(g => agJ[g.key] = g);
+eq('자연계열은 과학교과가 들어온다 (물리학Ⅰ 6등급 → 7.0)', agJ['과학'].avg, 7.0);
+eq('  사회교과 자리 없음', agJ['사회'], undefined);
+near('  가중합 = 8.70', suJ.generalAvg, 8.70);
+near('  공통·일반선택 = 69.6', suJ.generalScore, 69.6);
+eq('  여행지리(사회)는 진로선택에서도 빠져 2과목', suJ.careerCount, 2);
+eq('  → 상한 18', suJ.careerCap, 18);
+near('  진로선택 평균 9.75', suJ.careerAvg, 9.75);
+near('  최종 = 87.15', suJ.score, 87.15);
+eq('한국사는 자연계열에서 제외',
+   suJ.excluded.find(x => x.subject === '한국사').reason, '반영교과 아님 (사회)');
+
+const suY = U.computeUniv(S_STU, SSU('yeche'), OPT);
+near('예체능은 공통·일반선택 100% → 9.275/10×100 = 92.75', suY.score, 92.75);
+eq('  진로선택 0점', suY.careerScore, 0);
+eq('  총점 만점 100', suY.scoreMax, 100);
+
+section('17-d. 이수 과목이 없는 교과는 가중치 재정규화');
+/* 사회 교과가 통째로 없으면 국35 + 수15 + 영35 = 85로 재정규화 */
+const noSocial = S_STU.filter(r => !['통합사회', '한국사', '여행지리'].includes(r.subject));
+const suN = U.computeUniv(noSocial, SSU('inmun'), OPT);
+near('가중합 = (9.5×35 + 9.0×15 + 9.5×35)/85', suN.generalAvg, (9.5 * 35 + 9.0 * 15 + 9.5 * 35) / 85);
+eq('  재정규화 표시', suN.renormalized, true);
+eq('사회 교과가 있으면 재정규화 아님', su.renormalized, false);
+
+/* ═════════ 18. 체육·예술 성취도 평균 (동점자 처리 보조 지표) ═════════ */
+section('18. 체육·예술 교과 성취도 평균 — A 3점 · B 2점 · C 1점');
+eq('배점표 A=3', U.ARTS_PE_POINT.A, 3);
+eq('배점표 B=2', U.ARTS_PE_POINT.B, 2);
+eq('배점표 C=1', U.ARTS_PE_POINT.C, 1);
+const PE = [
+  rec({ year: 1, sem: 1, category: '체육', subject: '체육', credit: 2, ach: 'A' }),
+  rec({ year: 1, sem: 2, category: '예술', subject: '음악', credit: 2, ach: 'B' }),
+  rec({ year: 2, sem: 1, category: '체육', subject: '운동과 건강', credit: 2, ach: 'A' }),
+  rec({ year: 2, sem: 2, category: '예술', subject: '미술', credit: 1, ach: 'C' }),
+  rec({ year: 3, sem: 1, category: '국어', subject: '문학', credit: 4, grade: 2, raw: 88 }),
+  rec({ year: 3, sem: 2, category: '체육', subject: '스포츠 생활', credit: 2, ach: 'A' })
+];
+let pe = U.computeUniv(PE, GACHON, OPT).artsPe;
+/* 3-2 스포츠 생활은 반영 학기(1-1~3-1) 밖이라 빠진다 → A 2 · B 1 · C 1, 4과목 */
+eq('반영 학기 안의 체예 과목 4개', pe.count, 4);
+eq('  성취도 분포 A2 B1 C1', JSON.stringify(pe.dist), JSON.stringify({ A: 2, B: 1, C: 1 }));
+near('  과목 단위 평균 = (3+2+3+1)/4 = 2.25', pe.avg, 2.25);
+near('  이수단위 가중 평균 = (6+4+6+1)/7', pe.avgByCredit, 17 / 7);
+eq('  체예 학점 합 7', pe.credits, 7);
+eq('국어 과목은 안 섞임', pe.items.some(x => x.subject === '문학'), false);
+pe = U.computeUniv(PE, GACHON, Object.assign({}, OPT, { semTo: 32 })).artsPe;
+eq('3-2까지 넓히면 5과목', pe.count, 5);
+near('  평균 = (3+2+3+1+3)/5 = 2.4', pe.avg, 2.4);
+pe = U.computeUniv(PE.filter(r => r.category === '국어'), GACHON, OPT).artsPe;
+eq('체예 과목이 없으면 평균 null', pe.avg, null);
+eq('  과목 수 0', pe.count, 0);
+eq('교과 점수 산출에서는 체예가 여전히 제외됨',
+   U.computeUniv(PE, GACHON, OPT).included.some(x => x.area === '체예'), false);
+eq('외대에서도 같은 보조 지표를 낸다', U.computeUniv(PE, HUFS, OPT).artsPe.count, 4);
+eq('수동 제외한 체예 과목은 빠진다',
+   U.computeUniv(PE, GACHON, Object.assign({}, OPT, { kindOverride: { '체육': 'skip' } })).artsPe.count, 3);
+
+section('18-b. 가천대 동점자 처리 기준 기술');
+eq('동점자 지표 선언', GACHON.tiebreakers[0].key, 'artsPe');
+eq('  높을수록 유리', GACHON.tiebreakers[0].better, 'high');
+eq('동점자 처리 3단계 기술', GACHON.tiebreakSteps.length, 3);
+eq('산출 못 하는 기준 명시', GACHON.tiebreakUnsupported.length, 2);
+eq('외대·숭실대는 동점자 지표 미선언', [HUFS.tiebreakers, U.resolve('ssu', 'inmun').tiebreakers]
+   .every(x => x === undefined), true);
+
+/* ═════════ 19. 전남대 — 기본점수 + 실질점수 구조 ═════════ */
+section('19. 전남대 학생부교과(일반) — 규격');
+const CNU = k => U.resolve('cnu', k);
+[[1, 100], [2, 95], [3, 90], [4, 85], [5, 80], [6, 75], [7, 70], [8, 65], [9, 0]]
+  .forEach(([g, v]) => eq(`${g}등급 → ${v}점`, CNU('all').gradeConv[g - 1], v));
+eq('진로선택 A → 15점', CNU('all').achPoint.A, 15);
+eq('진로선택 B → 9점', CNU('all').achPoint.B, 9);
+eq('진로선택 C → 3점', CNU('all').achPoint.C, 3);
+eq('기본점수 660 · 계수 2.25', [CNU('all').basePoints, CNU('all').coef].join('/'), '660/2.25');
+eq('전 모집단위 반영교과', CNU('all').areas.join(','), '국어,수학,영어,사회,과학');
+eq('예능·체육교육과는 수학·과학 미반영', CNU('arts').areas.join(','), '국어,영어,사회');
+const cv = (k, o) => U.evalRecord(rec(Object.assign({ credit: 3 }, o)), CNU(k), OPT);
+eq('제2외국어는 전 모집단위에서 미반영',
+   cv('all', { category: '제2외국어', subject: '일본어Ⅰ', grade: 3 }).reason, '반영교과 아님 (기타)');
+eq('인문대학은 제2외국어 반영',
+   cv('inmun', { category: '제2외국어', subject: '일본어Ⅰ', grade: 3 }).included, true);
+eq('한문도 인문대학만 반영',
+   cv('inmun', { category: '한문', subject: '한문Ⅰ', grade: 2 }).included, true);
+eq('교과 열이 묶여 나와도 교육과정 표로 제2외국어를 가려낸다',
+   cv('inmun', { category: '기술・가정/제2외국어/한문/교양', subject: '일본어Ⅰ', grade: 3 }).included, true);
+eq('  같은 묶음의 교양 과목은 여전히 미반영',
+   cv('inmun', { category: '기술・가정/제2외국어/한문/교양', subject: '환경', ach: 'P' }).reason, '이수(P) 과목');
+eq('  같은 묶음의 정보(기술·가정)도 미반영',
+   cv('inmun', { category: '기술・가정/제2외국어/한문/교양', subject: '정보', grade: 4 }).reason,
+   '반영교과 아님 (기타)');
+eq('진로선택에 석차등급이 기재되면 석차등급산출과목으로',
+   cv('all', { category: '수학', subject: '기하', grade: 2, ach: 'A' }).kind, 'general');
+eq('  그 경우 등급점수 95 적용', cv('all', { category: '수학', subject: '기하', grade: 2, ach: 'A' }).use, 95);
+
+section('19-b. 전남대 종합 시나리오 (손계산 대조)');
+/*  석차등급산출과목 — 이수단위 가중평균
+      국어 4학점 2등급(95) · 수학 4학점 3등급(90) · 영어 4학점 1등급(100)
+      통합사회 3학점 4등급(85) · 통합과학 3학점 5등급(80) · 일본어Ⅰ 3학점 7등급(70, 인문대학만)
+    [전 모집단위] (380+360+400+255+240)/18 = 1635/18 = 90.8333…
+      실질점수 = 90.8333… × 2.25 = 204.375 → 기본 660 + 204.375 = 864.375
+    진로선택 (상위 3과목) — 기하 A(15) · 심화 국어 B(9) · 여행지리 A(15) · 생활과 과학 C(3)
+      상위 3 = 15 + 15 + 9 = 39 → 39/3 = 13
+    최종 = 864.375 + 13 = 877.375                                            */
+const N_STU = [
+  rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 2 }),
+  rec({ year: 1, sem: 1, category: '수학', subject: '수학', credit: 4, grade: 3 }),
+  rec({ year: 1, sem: 1, category: '영어', subject: '영어', credit: 4, grade: 1 }),
+  rec({ year: 1, sem: 2, category: '사회(역사/도덕포함)', subject: '통합사회', credit: 3, grade: 4 }),
+  rec({ year: 1, sem: 2, category: '과학', subject: '통합과학', credit: 3, grade: 5 }),
+  rec({ year: 2, sem: 1, category: '기술・가정/제2외국어/한문/교양', subject: '일본어Ⅰ', credit: 3, grade: 7 }),
+  rec({ year: 3, sem: 1, category: '수학', subject: '기하', credit: 3, ach: 'A' }),
+  rec({ year: 3, sem: 1, category: '국어', subject: '심화 국어', credit: 3, ach: 'B' }),
+  rec({ year: 3, sem: 1, category: '사회(역사/도덕포함)', subject: '여행지리', credit: 2, ach: 'A' }),
+  rec({ year: 3, sem: 1, category: '과학', subject: '생활과 과학', credit: 2, ach: 'C' })
+];
+const nu = U.computeUniv(N_STU, CNU('all'), OPT);
+eq('석차등급산출과목 학점 18 (일본어 제외)', nu.credits, 18);
+near('  이수단위 가중평균 = 1635/18', nu.generalAvg, 1635 / 18);
+near('  실질점수 = 204.375', nu.generalReal, 204.375);
+near('  기본 660 + 실질 = 864.375', nu.generalScore, 864.375);
+eq('진로선택 4과목 이수', nu.careerCount, 4);
+eq('  상위 3과목만 반영 (A15 A15 B9)',
+   nu.careerTop.map(x => x.use).join(','), '15,15,9');
+eq('  진로선택 점수 = 39/3 = 13', nu.careerScore, 13);
+eq('  비교내신 아님', nu.careerCompare, false);
+near('최종 교과 점수 = 877.375', nu.score, 877.375);
+eq('총점 만점 900 (출결 100점 별도)', nu.scoreMax, 900);
+near('환산등급 상당은 석차등급산출과목 평균 기준', nu.equiv,
+     2 + (95 - 1635 / 18) / (95 - 90));
+
+const nuI = U.computeUniv(N_STU, CNU('inmun'), OPT);
+eq('인문대학은 일본어Ⅰ이 들어와 학점 21', nuI.credits, 21);
+near('  가중평균 = (1635 + 210)/21', nuI.generalAvg, 1845 / 21);
+
+section('19-c. 진로선택 3과목 미만 → 비교내신');
+/* 요강 예시: 석차등급산출과목 실질점수 222.521 → 222.521 × 0.06666 = 14.83 */
+near('요강 예시 그대로 — 222.521 × 0.06666 → 14.83',
+     Math.round(222.521 * CNU('all').compareCoef * 100) / 100, 14.83);
+const twoCareer = N_STU.filter(r => !['여행지리', '생활과 과학'].includes(r.subject));
+const nu2 = U.computeUniv(twoCareer, CNU('all'), OPT);
+eq('진로선택 2과목 → 비교내신 적용', nu2.careerCompare, true);
+near('  비교내신 점수 = 204.375 × 0.06666 (반올림)',
+     nu2.careerScore, Math.round(204.375 * 0.06666 * 100) / 100);
+eq('  이수한 진로선택은 성적에 반영하지 않음 (상위 3과목 합산 안 씀)',
+   nu2.careerScore !== 13, true);
+const noCareer = N_STU.filter(r => r.grade !== null);
+const nu0 = U.computeUniv(noCareer, CNU('all'), OPT);
+eq('진로선택 0과목도 비교내신', nu0.careerCompare, true);
+/* 최저점 3 — 실질점수가 아주 낮은 학생 */
+const weak = [rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 9 })];
+const nuW = U.computeUniv(weak, CNU('all'), OPT);
+eq('실질점수 0이면 비교내신 최저점 3 부여', nuW.careerScore, 3);
+near('  총점 = 660 + 0 + 3', nuW.score, 663);
+
+section('19-d. 전형요소 배점 정합성');
+const perfect = [
+  rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 1 }),
+  rec({ year: 3, sem: 1, category: '수학', subject: '기하', credit: 3, ach: 'A' }),
+  rec({ year: 3, sem: 1, category: '국어', subject: '심화 국어', credit: 3, ach: 'A' }),
+  rec({ year: 3, sem: 1, category: '영어', subject: '진로 영어', credit: 3, ach: 'A' })
+];
+const nuP = U.computeUniv(perfect, CNU('all'), OPT);
+near('전 과목 1등급 + 진로선택 A → 실질점수 만점 225', nuP.generalReal, 225);
+eq('  진로선택 만점 15', nuP.careerScore, 15);
+near('  교과 점수 만점 900 (660+225+15)', nuP.score, 900);
+
 /* ═════════ 결과 ═════════ */
 console.log('\n' + '─'.repeat(60));
 if (failures.length) {

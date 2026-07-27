@@ -198,13 +198,36 @@
     if (m2) return { raw: parseFloat(m2[1]), avg: null, std: null };
     return null;
   }
+  /* 성취도(수강자수) — 'A' · 'A(250)' · 'A (250)' · 소문자 모두 허용.
+     체육·예술 과목은 수강자수 없이 성취도만 적히는 경우가 많다. */
   function parseI(val) {
     var s = trimStr(val);
     if (!s) return null;
-    if (s === 'P') return { ach: 'P', cnt: 0 };
-    var m = s.match(/^([A-E])(?:\s*\(\s*(\d+)\s*\))?/);
-    if (m) return { ach: m[1], cnt: m[2] ? parseInt(m[2], 10) : 0 };
+    if (s === 'P' || s === 'p') return { ach: 'P', cnt: 0 };
+    var m = s.match(/^([A-Ea-e])(?:\s*\(\s*(\d+)\s*\))?/);
+    if (m) return { ach: m[1].toUpperCase(), cnt: m[2] ? parseInt(m[2], 10) : 0 };
     return null;
+  }
+  /* 성취도가 표준 열(I)에 없을 때만 쓰는 보정 —
+     원점수가 없는 과목(체육·예술 등)에서 열이 한 칸씩 밀려 나오는 출력이 있다.
+     성취도·석차등급이 둘 다 비었을 때만, 그리고 셀 전체가 성취도 토큰일 때만 인정한다. */
+  function parseIShifted(row) {
+    for (var c = 7; c <= 11; c++) {
+      if (c === 8) continue;
+      var s = trimStr(row[c]);
+      if (!s) continue;
+      if (/^[A-Ea-e]\s*(\(\s*\d+\s*\))?$/.test(s) || s === 'P' || s === 'p') return parseI(s);
+    }
+    return null;
+  }
+  /* 성취도별 분포비율 — 진로선택 과목은 석차등급 열에 'A(75.7) B(20.9) C(3.5)' 형태로 들어온다.
+     성취도(수강자수) 'A(120)'과 헷갈리지 않도록 두 개 이상 잡힐 때만 분포로 인정한다. */
+  function parseDist(val) {
+    var s = trimStr(val);
+    if (!s) return null;
+    var re = /([A-E])\s*\(\s*(\d+(?:\.\d+)?)\s*\)/g, m, out = {}, n = 0;
+    while ((m = re.exec(s))) { out[m[1]] = parseFloat(m[2]); n++; }
+    return n >= 2 ? out : null;
   }
   function parseJ(val) {
     var s = trimStr(val);
@@ -238,12 +261,15 @@
       if (!lName || !isName(lName)) continue;
 
       var h = parseH(row[7]), ach = parseI(row[8]), g = parseJ(row[9]);
+      if (!ach && g === null) ach = parseIShifted(row);   // 열이 밀린 출력 보정
+      var dist = g === null ? parseDist(row[9]) : null;   // 진로선택 성취도별 분포비율
       records.push({
         no: lNo, name: lName, year: lYear, sem: lSem,
         category: trimStr(row[4]), subject: sF,
         credit: parseFloat(row[6]) || 0,
         raw: h ? h.raw : null, avg: h ? h.avg : null, std: h ? h.std : null,
-        grade: g, ach: ach ? ach.ach : '', cnt: ach ? ach.cnt : null
+        grade: g, ach: ach ? ach.ach : '', cnt: ach ? ach.cnt : null,
+        dist: dist
       });
     }
     return { kind: 'transcript', ban: ban, records: records };
