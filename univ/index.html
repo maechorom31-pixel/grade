@@ -2184,7 +2184,16 @@ function studentHTML(r) {
     h += subjTable(r.univ.included, true, sp);
   }
 
-  var ex = r.univ.excluded.filter(function (it) { return it.reason !== '반영 학기 밖'; });
+  /* 체육·예술은 교과 점수에서 빠지지만 동점자 처리에 실제로 쓰인다.
+     흐릿한 제외 목록에 묻지 않고 자기 자리에서 산정 과정을 보여 준다. */
+  var peShown = artsPeSection(r, sp);
+  h += peShown;
+
+  var ex = r.univ.excluded.filter(function (it) {
+    if (it.reason === '반영 학기 밖') return false;
+    if (peShown && it.area === '체예') return false;   // 위에서 따로 보여 줬다
+    return true;
+  });
   var exSem = r.univ.excluded.length - ex.length;
   h += '<h3>제외 과목 <span class="sub" style="font-weight:400;color:var(--muted);font-size:.8rem">' +
        ex.length + '과목' + (exSem ? ' (반영 학기 밖 ' + exSem + '과목은 생략)' : '') + '</span></h3>';
@@ -2195,6 +2204,62 @@ function studentHTML(r) {
        (r.univ.equiv !== null
          ? '「환산등급 상당」은 교과 점수를 등급환산표에 역으로 대입해 감을 잡기 위한 참고값이며 요강에 있는 개념은 아닙니다.'
          : '이 대학은 배점 척도가 등급과 대응하지 않아 「환산등급 상당」을 내지 않습니다.') + '</p>';
+  return h;
+}
+
+/* 체육·예술 교과 산정 표 — 동점자 처리 지표를 쓰는 규격에서만 펼친다 */
+function artsPeSection(r, sp) {
+  if (!sp.tiebreakers || !sp.tiebreakers.length) return '';
+  var pe = r.univ.artsPe, P = U.ARTS_PE_POINT;
+  var head = '<h3>체육 · 예술 교과 <span class="sub" style="font-weight:400;color:var(--muted);' +
+    'font-size:.8rem">동점자 처리 지표 · 교과 점수에는 들어가지 않습니다</span></h3>';
+  if (!pe.count)
+    return head + '<div class="card" style="color:var(--faint)">반영 학기 안에 체육·예술 과목 기록이 없습니다.</div>';
+
+  var sum = 0;
+  var rows = pe.items.slice().sort(function (a, b) {
+    return (a.year * 10 + a.sem) - (b.year * 10 + b.sem) || a.subject.localeCompare(b.subject);
+  }).map(function (it) {
+    var pt = P[it.ach];
+    sum += pt;
+    var currL = it.curr === 'career' ? '진로선택' : it.curr === 'general' ? '일반선택' : '—';
+    return '<tr><td class="num">' + semLabel(it.year, it.sem) + '</td>' +
+      '<td>' + esc(it.category || '—') + '</td><td>' + esc(it.subject) + '</td>' +
+      '<td class="c" style="font-size:.78rem;color:var(--muted)">' + currL + '</td>' +
+      '<td class="r num">' + (it.credit || '—') + '</td>' +
+      '<td class="c"><b>' + esc(it.ach) + '</b></td>' +
+      '<td class="r num usecell">' + pt + '</td></tr>';
+  }).join('');
+
+  var d = pe.dist;
+  var h = head + '<div class="tblwrap"><table class="plain"><thead><tr>' +
+    '<th>학기</th><th>교과</th><th>과목</th><th class="c">구분</th><th class="r">학점</th>' +
+    '<th class="c">성취도</th><th class="r">배점</th></tr></thead><tbody>' + rows +
+    '<tr style="border-top:2px solid var(--line)"><td colspan="4" style="font-weight:700">평균</td>' +
+    '<td class="r num" style="color:var(--muted)">' + pe.credits + '</td>' +
+    '<td class="c" style="font-size:.78rem;color:var(--muted)">' +
+      ['A', 'B', 'C'].filter(function (k) { return d[k]; })
+        .map(function (k) { return k + ' ' + d[k]; }).join(' · ') + '</td>' +
+    '<td class="r num"><b style="font-size:1.05rem">' + pe.avg.toFixed(2) + '</b></td></tr>' +
+    '</tbody></table></div>';
+
+  h += '<p class="footnote" style="margin-top:10px">배점은 <b>A 3점 · B 2점 · C 1점</b>. ' +
+    '배점 합 ' + sum + ' ÷ ' + pe.count + '과목 = <b>' + pe.avg.toFixed(2) + '점</b>입니다. ' +
+    '요강이 「성취도 평균」이라고만 해 과목 단위로 평균했고, 이수단위로 가중하면 ' +
+    pe.avgByCredit.toFixed(2) + '점입니다. ' + esc(sp.name) + '는 이 값이 동점자 처리 기준이라, ' +
+    '교과 점수가 같은 학생끼리는 여기서 갈립니다.</p>';
+
+  if (sp.tiebreakSteps && sp.tiebreakSteps.length) {
+    h += '<div class="card" style="margin-top:12px"><div style="font-size:.78rem;font-weight:700;' +
+      'color:var(--muted);margin-bottom:8px">' + esc(sp.name) + ' 동점자 처리 순서</div><ol style="' +
+      'margin:0 0 0 18px;font-size:.83rem;color:var(--muted);line-height:1.8">' +
+      sp.tiebreakSteps.map(function (t, i) {
+        var can = i === 1;
+        return '<li>' + esc(t) + (can
+          ? ' <span class="pill ach">이 도구가 산출</span>'
+          : ' <span class="pill off">자료 없어 미산출</span>') + '</li>';
+      }).join('') + '</ol></div>';
+  }
   return h;
 }
 
