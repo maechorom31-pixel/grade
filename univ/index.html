@@ -1459,8 +1459,12 @@ td.dv{font-weight:700}
       round: 4,
       excludeCommon: false,        // 지역균형과 달리 공통과목을 반영한다
       careerAreaLimited: true,
-      areas: ['국어', '수학', '영어', '사회', '과학'],
-      areaNote: '국어 · 수학 · 영어 · 사회 · 과학',
+      /* 교과 제한 없이 공통과목·일반선택과목 전체를 반영한다.
+         두 유형 모두 석차등급으로 계산하므로, 석차등급이 없는 과목
+         (체육·예술 일반선택은 성취도만, 교양은 이수 P만)은 convert에서 자연히 빠지고
+         석차등급이 나오는 정보·제2외국어Ⅰ·한문Ⅰ은 그대로 들어온다. */
+      areas: ['국어', '수학', '영어', '사회', '과학', '체예', '기타'],
+      areaNote: '교과 제한 없음 — 공통과목 · 일반선택과목 전체 (석차등급이 산출된 과목만)',
 
       alternatives: [
         { key: 't1', label: '유형1 · 변환등급 적용',
@@ -1488,7 +1492,9 @@ td.dv{font-weight:700}
       ],
 
       convert: function (it, spec) {
-        if (it.kind === 'career') { it.reason = '이 전형은 진로선택 미반영'; return; }
+        /* 두 유형 모두 석차등급으로만 계산한다. 성취도로 산출되는 과목은
+           진로선택이든 체육·예술 일반선택이든 똑같이 반영 대상이 아니다. */
+        if (it.kind === 'career') { it.reason = '성취도 산출 과목 (석차등급만 반영)'; return; }
         if (!(it.grade >= 1 && it.grade <= 9)) { it.reason = '석차등급 없음'; return; }
         it.altUse = {};
         spec.alternatives.forEach(function (alt) {
