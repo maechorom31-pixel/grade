@@ -789,6 +789,125 @@ near('전 과목 1등급 + 진로선택 A → 실질점수 만점 225', nuP.gene
 eq('  진로선택 만점 15', nuP.careerScore, 15);
 near('  교과 점수 만점 900 (660+225+15)', nuP.score, 900);
 
+/* ═════════ 20. 명지대 — 이수학점 가산점 구조 ═════════ */
+section('20. 명지대 학생부교과(특성화고교전형 외) — 규격');
+const MJU = k => U.resolve('mju', k);
+[[1, 100], [2, 99], [3, 98], [4, 94], [5, 90], [6, 80], [7, 60], [8, 30], [9, 0]]
+  .forEach(([g, v]) => eq(`${g}등급 → ${v}점`, MJU('inmun').gradeConv[g - 1], v));
+eq('진로선택 성취도 A → 1등급', MJU('inmun').achGrade.A, 1);
+eq('  B → 2등급', MJU('inmun').achGrade.B, 2);
+eq('  C → 4등급 (3등급이 아니다)', MJU('inmun').achGrade.C, 4);
+eq('인문사회계열 반영교과', MJU('inmun').areas.join(','), '국어,수학,영어,사회');
+eq('자연공학계열 반영교과', MJU('jayeon').areas.join(','), '국어,수학,영어,과학');
+eq('예체능계열은 국어·영어만', MJU('yeche').areas.join(','), '국어,영어');
+eq('이수학점 가산점 계수 0.05', MJU('inmun').bonusPerCredit, 0.05);
+const mv = (k, o) => U.evalRecord(rec(Object.assign({ credit: 3 }, o)), MJU(k), OPT);
+eq('진로선택 A → 100점', mv('inmun', { category: '국어', subject: '심화 국어', ach: 'A' }).use, 100);
+eq('진로선택 B → 99점', mv('inmun', { category: '국어', subject: '심화 국어', ach: 'B' }).use, 99);
+eq('진로선택 C → 94점 (4등급 자리)', mv('inmun', { category: '국어', subject: '심화 국어', ach: 'C' }).use, 94);
+eq('인문사회계열에서 과학은 미반영',
+   mv('inmun', { category: '과학', subject: '물리학Ⅰ', grade: 2 }).reason, '반영교과 아님 (과학)');
+eq('자연공학계열에서 사회는 미반영',
+   mv('jayeon', { category: '사회(역사/도덕포함)', subject: '생활과 윤리', grade: 2 }).reason,
+   '반영교과 아님 (사회)');
+eq('예체능계열에서 수학은 미반영',
+   mv('yeche', { category: '수학', subject: '미적분', grade: 2 }).reason, '반영교과 아님 (수학)');
+eq('한국사는 인문사회계열 사회에 포함',
+   mv('inmun', { category: '한국사', subject: '한국사', grade: 3 }).included, true);
+eq('명지대는 공통과목도 반영',
+   mv('inmun', { category: '국어', subject: '국어', grade: 1 }).included, true);
+
+section('20-b. 명지대 종합 시나리오 (손계산 대조)');
+/*  국어 국어      4학점 1등급 → 100 → 400
+    수학 수학      4학점 3등급 →  98 → 392
+    영어 영어      4학점 2등급 →  99 → 396
+    사회 통합사회  3학점 4등급 →  94 → 282
+    한국사        3학점 5등급 →  90 → 270
+    국어 심화 국어 3학점 A(1등급) → 100 → 300
+    사회 여행지리  2학점 C(4등급) →  94 → 188
+    과학 통합과학  4학점 2등급 (인문사회계열이면 제외)
+    체육 체육      2학점 A       (제외)
+
+    [인문사회] 분자 2228 · 분모 23 → 96.869565…
+      가산점 23 × 0.05 = 1.15 → 98.019565… → 소수 넷째자리 반올림 → 98.02      */
+const M_STU = [
+  rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 1 }),
+  rec({ year: 1, sem: 1, category: '수학', subject: '수학', credit: 4, grade: 3 }),
+  rec({ year: 1, sem: 1, category: '영어', subject: '영어', credit: 4, grade: 2 }),
+  rec({ year: 1, sem: 2, category: '사회(역사/도덕포함)', subject: '통합사회', credit: 3, grade: 4 }),
+  rec({ year: 2, sem: 1, category: '한국사', subject: '한국사', credit: 3, grade: 5 }),
+  rec({ year: 3, sem: 1, category: '국어', subject: '심화 국어', credit: 3, ach: 'A' }),
+  rec({ year: 3, sem: 1, category: '사회(역사/도덕포함)', subject: '여행지리', credit: 2, ach: 'C' }),
+  rec({ year: 1, sem: 2, category: '과학', subject: '통합과학', credit: 4, grade: 2 }),
+  rec({ year: 1, sem: 1, category: '체육', subject: '체육', credit: 2, ach: 'A' })
+];
+const mu = U.computeUniv(M_STU, MJU('inmun'), OPT);
+eq('반영 학점 23', mu.credits, 23);
+eq('학점×환산 합 = 2228', mu.weighted, 2228);
+near('가산점 전 가중평균 = 2228/23', mu.base, 2228 / 23);
+eq('가산점 대상 학점 = 23', mu.bonusCredits, 23);
+near('가산점 = 1.15', mu.bonus, 1.15);
+eq('최종 = 98.02 (소수 넷째자리 반올림)', mu.score, Math.round((2228 / 23 + 1.15) * 1000) / 1000);
+eq('  값 확인', mu.score, 98.02);
+eq('통합과학은 인문사회계열에서 제외',
+   mu.excluded.find(x => x.subject === '통합과학').reason, '반영교과 아님 (과학)');
+near('환산등급 상당은 가산점 뺀 값 기준', mu.equiv,
+     3 + (98 - 2228 / 23) / (98 - 94));
+
+/*  [자연공학] 국어4(400) 수학4(392) 영어4(396) 통합과학4(396) 심화국어3(300)
+      분자 1884 · 분모 19 → 99.157894…  가산점 0.95 → 100.107894… → 100.108
+      → 가산점 때문에 척도 최고점 100을 넘는다 (요강 명시) */
+const muJ = U.computeUniv(M_STU, MJU('jayeon'), OPT);
+eq('자연공학 반영 학점 19', muJ.credits, 19);
+eq('  학점×환산 합 = 1884', muJ.weighted, 1884);
+near('  가산점 = 0.95', muJ.bonus, 0.95);
+eq('  최종 = 100.108', muJ.score, Math.round((1884 / 19 + 0.95) * 1000) / 1000);
+eq('  가산점 때문에 100점을 넘는다', muJ.score > 100, true);
+
+/*  [예체능] 국어4(400) 영어4(396) 심화국어3(300) = 1096 / 11 → 99.636363…
+      가산점 0.55 → 100.186363… → 100.186 */
+const muY = U.computeUniv(M_STU, MJU('yeche'), OPT);
+eq('예체능 반영 학점 11', muY.credits, 11);
+eq('  최종 = 100.186', muY.score, Math.round((1096 / 11 + 0.55) * 1000) / 1000);
+
+section('20-c. 가산점은 이수량이 많을수록 유리하다');
+/* 같은 등급 분포인데 학점만 두 배면 가중평균은 같고 가산점만 커진다 */
+const lean = [rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 2 })];
+const heavy = [
+  rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 2 }),
+  rec({ year: 2, sem: 1, category: '국어', subject: '문학', credit: 4, grade: 2 })
+];
+const mL = U.computeUniv(lean, MJU('inmun'), OPT);
+const mH = U.computeUniv(heavy, MJU('inmun'), OPT);
+eq('가중평균은 둘 다 99', [mL.base, mH.base].join('/'), '99/99');
+eq('가산점은 0.2 vs 0.4', [mL.bonus, mH.bonus].join('/'), '0.2/0.4');
+eq('많이 이수한 쪽이 높다', mH.score > mL.score, true);
+near('  차이 = 0.2', mH.score - mL.score, 0.2);
+
+section('20-d. 가산점 학점 합에는 환산 불가 과목도 들어간다');
+/* '반영교과 내 모든 이수과목'이므로 이수(P) 과목도 학점 합에 포함된다 */
+const withP = [
+  rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 1 }),
+  rec({ year: 1, sem: 1, category: '국어', subject: '고전 읽기', credit: 2, ach: 'P' })
+];
+const mP = U.computeUniv(withP, MJU('inmun'), OPT);
+eq('환산 대상 학점은 4', mP.credits, 4);
+eq('  가산점 학점 합은 6 (P 과목 포함)', mP.bonusCredits, 6);
+near('  가산점 = 0.3', mP.bonus, 0.3);
+eq('반영교과 밖 과목은 가산점에도 안 들어간다',
+   U.computeUniv(withP.concat([
+     rec({ year: 1, sem: 1, category: '체육', subject: '체육', credit: 2, ach: 'A' })
+   ]), MJU('inmun'), OPT).bonusCredits, 6);
+eq('반영 학기 밖 과목도 가산점에서 제외',
+   U.computeUniv(withP.concat([
+     rec({ year: 3, sem: 2, category: '국어', subject: '문학', credit: 4, grade: 1 })
+   ]), MJU('inmun'), OPT).bonusCredits, 6);
+
+section('20-e. 다른 대학은 가산점 영향 없음');
+eq('외대는 가산점 필드 없음', HUFS.bonusPerCredit, undefined);
+eq('  외대 점수는 종전대로', U.computeUniv(STU, HUFS, OPT).score, 955.714285);
+eq('외대는 base도 채워진다 (pooled 공통)', U.computeUniv(STU, HUFS, OPT).base, 955.714285);
+
 /* ═════════ 결과 ═════════ */
 console.log('\n' + '─'.repeat(60));
 if (failures.length) {
