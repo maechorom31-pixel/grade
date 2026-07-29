@@ -218,6 +218,11 @@
   /* 요강이 지정한 자리에서 반올림 */
   function round2(v) { return v === null ? null : Math.round(v * 100) / 100; }
   function round3(v) { return v === null ? null : Math.round(v * 1000) / 1000; }
+  function roundTo(v, d) {
+    if (v === null || v === undefined) return null;
+    var p = Math.pow(10, d);
+    return Math.round(v * p) / p;
+  }
   /* 절사 (값판). 그룹 가중합처럼 정수 나눗셈으로 환원하기 어려울 때 쓴다. */
   function truncTo(v, digits) {
     if (v === null || v === undefined) return null;
@@ -590,6 +595,87 @@
             ] }
         ];
       }
+    },
+
+    /* ────────── 명지대학교 · 학생부교과(특성화고교전형) 외 ────────── */
+    mju: {
+      id: 'mju', name: '명지대학교', short: '명지대',
+      types: '학생부교과(학교장추천 · 교과면접 · 기회균형 · 만학도 · 특수교육대상자) · 실기/실적',
+      target: '학생부교과(특성화고교전형)는 산식이 달라 수록하지 않음',
+      formula: 'Σ(등급별 환산점수 × 이수학점) ÷ Σ(이수학점) + 가산점(반영교과 내 모든 이수학점 합 × 0.05)',
+      ratioNote: '학년별 가중치 없음 · 지원자 전체 3학년 1학기까지 성적 반영',
+      rawNote: '석차등급 1→100 · 2→99 · 3→98 · 4→94 · 5→90 · 6→80 · 7→60 · 8→30 · 9→0, 진로선택 성취도는 A=1등급 · B=2등급 · C=4등급',
+      mode: 'pooled',
+      scaleMax: 100,
+      trunc: null,
+      round: 3,                    // 소수점 넷째자리에서 반올림
+      bonusPerCredit: 0.05,        // 이수학점 가산점
+      excludeCommon: false,
+      careerAreaLimited: true,
+      gradeConv: [100, 99, 98, 94, 90, 80, 60, 30, 0],
+      /* 성취평가 점수 행: 1등급 A · 2등급 B · 4등급 C · 8등급 D · 9등급 E */
+      achGrade: { A: 1, B: 2, C: 4, D: 8, E: 9 },
+      /* 등급 상당치는 가산점을 뺀 순수 가중평균으로 낸다 (가산점은 이수량이라 등급이 아니다) */
+      equivScale: [100, 99, 98, 94, 90, 80, 60, 30, 0],
+      equivFrom: function (out) { return out.base; },
+
+      variants: [
+        { key: 'inmun', label: '인문사회계열',
+          areas: ['국어', '수학', '영어', '사회'],
+          areaNote: '국어 · 수학 · 영어 · 사회(한국사 포함)' },
+        { key: 'jayeon', label: '자연공학계열',
+          areas: ['국어', '수학', '영어', '과학'],
+          areaNote: '국어 · 수학 · 영어 · 과학' },
+        { key: 'yeche', label: '예체능계열 (스포츠 · 예술대학)',
+          areas: ['국어', '영어'],
+          areaNote: '국어 · 영어' }
+      ],
+
+      detail: [
+        { h: '적용 등급', get: function (it) {
+            return it.kind === 'career' ? it.convGrade : it.grade; } }
+      ],
+
+      convert: function (it, spec) {
+        if (it.kind === 'career') {
+          var g = spec.achGrade[it.ach];
+          if (!g) {
+            it.reason = '성취도 ' + it.ach + ' 환산 기준 없음';
+            it.warn = (it.warn ? it.warn + ' / ' : '') + '요강 환산표에 없는 성취도입니다 — 확인 필요';
+            return;
+          }
+          it.convGrade = g;
+          it.use = spec.gradeConv[g - 1];
+          it.basis = '성취도 ' + it.ach + ' → ' + g + '등급';
+        } else {
+          if (!(it.grade >= 1 && it.grade <= 9)) { it.reason = '석차등급 없음'; return; }
+          it.use = spec.gradeConv[it.grade - 1];
+          it.basis = it.grade + '등급';
+        }
+      },
+
+      specTables: function (sp) {
+        var rows = [];
+        for (var g = 1; g <= 9; g++)
+          rows.push([{ v: g, grade: g }, { v: sp.gradeConv[g - 1], num: true }]);
+        return [
+          { title: '석차등급별 환산점수', head: ['석차등급', '환산점수'], rows: rows },
+          { title: '진로선택 성취도 → 등급', head: ['성취도', '등급', '환산점수'],
+            rows: ['A', 'B', 'C'].map(function (k) {
+              var g = sp.achGrade[k];
+              return [{ v: k, strong: true }, { v: g + '등급' },
+                      { v: sp.gradeConv[g - 1], num: true }]; }) },
+          { title: '전형별 교과성적 환산점수 (산출식 결과값 기준)',
+            head: ['전형', '환산', '총점'],
+            rows: [
+              [{ v: '학생부교과(학교장추천 · 기회균형)' }, { v: '결과값 × 10' }, { v: 1000, num: true }],
+              [{ v: '학생부교과(교과면접 등) 1단계' }, { v: '결과값 × 10' }, { v: 1000, num: true }],
+              [{ v: '학생부교과(교과면접 등) 2단계' }, { v: '결과값 × 7' }, { v: 700, num: true }],
+              [{ v: '실기/실적(실기우수자 등)' }, { v: '결과값 × 2' }, { v: 200, num: true }],
+              [{ v: '실기/실적(특기자 일부)' }, { v: '결과값 × 1' }, { v: 100, num: true }]
+            ] }
+        ];
+      }
     }
   };
 
@@ -814,7 +900,24 @@
       var num = 0, den = 0;
       inc.forEach(function (it) { num += it.credit * it.use; den += it.credit; });
       out.weighted = num; out.credits = den;
-      out.score = spec.trunc ? truncDiv(num, den, spec.trunc) : (den > 0 ? num / den : null);
+      out.base = spec.trunc ? truncDiv(num, den, spec.trunc) : (den > 0 ? num / den : null);
+      out.score = out.base;
+      /* 이수학점 가산점 — 반영교과 안에서 이수한 모든 과목의 학점 합에 비례한다.
+         환산점수를 못 매기는 과목(이수 P 등)도 '이수과목'이라 학점 합에는 들어간다.
+         가산점 때문에 총점이 척도 최고점을 넘을 수 있다 (요강 명시). */
+      if (spec.bonusPerCredit) {
+        var bc = 0;
+        items.forEach(function (it) {
+          if (OUT_OF_SCOPE.indexOf(it.reason) >= 0) return;
+          if (!(spec.areaOk ? spec.areaOk(it, spec) : spec.areas.indexOf(it.area) >= 0)) return;
+          if (!(it.credit > 0)) return;
+          bc += it.credit;
+        });
+        out.bonusCredits = bc;
+        out.bonus = bc * spec.bonusPerCredit;
+        if (out.score !== null) out.score += out.bonus;
+      }
+      if (spec.round && out.score !== null) out.score = roundTo(out.score, spec.round);
     }
     out.equiv = equivGrade(spec.equivFrom ? spec.equivFrom(out) : out.score, spec);
     return out;

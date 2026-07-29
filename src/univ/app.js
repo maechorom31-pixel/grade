@@ -106,7 +106,7 @@ function n1(v) { return v === null || v === undefined ? '—' : String(Math.roun
 function fscore(v) {
   if (v === null || v === undefined) return '—';
   var sp = spec();
-  return v.toFixed(sp.trunc ? sp.trunc : 4);
+  return v.toFixed(sp.trunc || sp.round || 4);
 }
 function pctS(v) { return v === null || v === undefined ? '—' : v.toFixed(1) + '%'; }
 function signed(v, d) {
@@ -350,6 +350,9 @@ function studentHTML(r) {
     if (r.univ.renormalized) form += '  · 한쪽 그룹이 비어 남은 비율로 재조정';
   } else {
     form = '학점×환산 합 ' + n1(r.univ.weighted) + ' ÷ 총 학점 ' + r.univ.credits;
+    if (sp.bonusPerCredit)
+      form += ' = ' + n1(r.univ.base) + '  +  가산점 ' + n1(r.univ.bonus) +
+              ' (' + r.univ.bonusCredits + '학점 × ' + sp.bonusPerCredit + ')';
   }
   h += '<div class="cmpbox accent"><div class="h"><em>' + esc(sp.name) + '</em> 교과 점수</div>' +
        '<div class="v num">' + fscore(r.univ.score) + '</div>' +
@@ -566,6 +569,12 @@ function factorBoxes(r, a, sp) {
 
     var achTxt = ['A', 'B', 'C'].filter(function (k) { return a.achCount[k]; })
         .map(function (k) { return k + ' ' + a.achCount[k] + '과목'; }).join(' · ');
+    if (sp.bonusPerCredit)
+      h += box('이수학점 가산점', '+' + n1(r.univ.bonus) + '점', 'up',
+        '반영교과 안에서 이수한 <b>' + r.univ.bonusCredits + '학점</b> × ' + sp.bonusPerCredit +
+        '입니다. 환산 대상이 아닌 이수(P) 과목도 학점 합에는 들어갑니다. ' +
+        '성적이 같아도 <b>많이 이수할수록 유리</b>하고, 이 가산점 때문에 총점이 ' +
+        sp.scaleMax + '점을 넘을 수 있습니다.');
     h += box('진로선택 성취도', a.careerAvg === null ? '—' : n1(a.careerAvg), 'num',
       a.careerCredits
         ? achTxt + ' · ' + a.careerCredits + '학점 · 평균 환산점수입니다. 공통·일반선택 평균 환산은 ' +
@@ -664,6 +673,7 @@ function renderRank() {
   h += '<div class="tblwrap"><table class="plain ranktbl"><thead><tr>' +
     '<th>학번</th><th>이름</th><th class="r">단순 평균등급</th><th class="r">석차</th>' +
     '<th class="r">' + esc(sp.short) + ' 교과점수</th>' +
+    (sp.bonusPerCredit ? '<th class="r">가산점</th>' : '') +
     (showEquiv ? '<th class="r">환산등급 상당</th>' : '') +
     '<th class="r">석차</th>' +
     (hasTB ? '<th class="r">동점</th><th class="r">체예 성취도</th>' : '') +
@@ -675,6 +685,10 @@ function renderRank() {
       '<td class="r num">' + f2(r.plain.gpa) + '</td>' +
       '<td class="r num">' + (r.plainRank ? r.plainRank.rank : '—') + '</td>' +
       '<td class="r num">' + fscore(r.univ.score) + '</td>' +
+      (sp.bonusPerCredit
+        ? '<td class="r num" style="color:var(--up)">+' + n1(r.univ.bonus) +
+          ' <span style="color:var(--faint);font-size:.78rem">' + r.univ.bonusCredits + '학점</span></td>'
+        : '') +
       (showEquiv ? '<td class="r num">' + f2(r.univ.equiv) + '</td>' : '') +
       '<td class="r num">' + (r.univRank ? r.univRank.rank : '—') + '</td>' +
       (hasTB
