@@ -102,6 +102,12 @@ function esc(s) {
 function f2(v) { return v === null || v === undefined ? '—' : v.toFixed(2); }
 function f1(v) { return v === null || v === undefined ? '—' : v.toFixed(1); }
 function n1(v) { return v === null || v === undefined ? '—' : String(Math.round(v * 10) / 10); }
+/* 유형 간 차이가 소수점 아래에서 갈리므로 규격의 반올림 자릿수를 그대로 쓴다 */
+function nAlt(v) {
+  if (v === null || v === undefined) return '—';
+  var d = spec().round || 2;
+  return String(Math.round(v * Math.pow(10, d)) / Math.pow(10, d));
+}
 /* 교과 점수 표기 — 절사 규정이 있으면 그 자릿수로, 없으면 4자리 */
 function fscore(v) {
   if (v === null || v === undefined) return '—';
@@ -326,9 +332,16 @@ function studentHTML(r) {
        '<div class="form num">학점×등급 합 ' + n1(r.plain.weighted) + ' ÷ 총 이수학점 ' + r.plain.credits + '</div></div>';
 
   var sub = (r.univ.equiv !== null ? '환산등급 상당 <b class="num">' + f2(r.univ.equiv) + '등급</b> · ' : '') +
-            '반영 ' + r.univ.credits + '학점 ' + r.univ.included.length + '과목';
+            (sp.mode === 'best' && r.univ.best
+              ? '채택 ' + r.univ.best.items.length + '과목 ' + r.univ.best.credits + '학점' +
+                ' · 후보 ' + r.univ.included.length + '과목'
+              : '반영 ' + r.univ.credits + '학점 ' + r.univ.included.length + '과목');
   var form;
-  if (sp.mode === 'base') {
+  if (sp.mode === 'best') {
+    form = (r.univ.alts || []).map(function (a) {
+      return a.label.replace(/ ·.*/, '') + ' ' + nAlt(a.avg) + (a.chosen ? ' ← 채택' : '');
+    }).join('   ');
+  } else if (sp.mode === 'base') {
     form = '기본 ' + sp.basePoints + ' + 실질 ' + n1(r.univ.generalReal) +
            ' (평균 ' + n1(r.univ.generalAvg) + '점 × ' + sp.coef + ')';
     form += '  +  진로선택 ' + n1(r.univ.careerScore) +
@@ -372,7 +385,12 @@ function studentHTML(r) {
     h += items.length ? subjTable(items, true, sp)
        : '<div class="card" style="color:var(--faint)">' + empty + '</div>';
   }
-  if (sp.mode === 'base') {
+  if (sp.mode === 'best') {
+    var altT2 = (r.univ.alts || []).filter(function (a) { return a.topN; })[0];
+    sec('반영 과목', r.univ.included.length + '과목' +
+        (altT2 ? ' · 유형2는 석차등급 우수 ' + altT2.items.length + '과목만 반영' : ''),
+        r.univ.included, '반영된 과목이 없습니다.');
+  } else if (sp.mode === 'base') {
     sec('석차등급산출과목', (r.univ.generalItems || []).length + '과목 · ' + r.univ.credits +
         '학점 · 평균 ' + n1(r.univ.generalAvg) + '점',
         r.univ.generalItems || [], '반영된 과목이 없습니다.');
@@ -513,7 +531,22 @@ function factorBoxes(r, a, sp) {
         : '반영 학기 안에 공통과목 기록이 없습니다.');
   }
 
-  if (sp.mode === 'base') {
+  if (sp.mode === 'best') {
+    (r.univ.alts || []).forEach(function (g) {
+      h += box(esc(g.label) + (g.chosen ? ' <span class="pill ach">채택</span>' : ''),
+        g.avg === null ? '—' : nAlt(g.avg), g.chosen ? 'up' : 'flat',
+        esc(g.note) + '<br>' +
+        (g.topN
+          ? '후보 ' + g.candidates + '과목 중 석차등급이 우수한 <b>' + g.items.length +
+            '과목</b>(' + g.credits + '학점)만 반영했습니다.'
+          : '반영 ' + g.items.length + '과목(' + g.credits + '학점) 전부를 평균했습니다.'));
+    });
+    var lostAlt = (r.univ.alts || []).filter(function (a) { return !a.chosen && a.avg !== null; })[0];
+    if (lostAlt && r.univ.best)
+      h += box('두 유형의 차이', signed(r.univ.best.avg - lostAlt.avg, 2) + '점', 'num',
+        '유리한 쪽인 <b>' + esc(r.univ.best.label.replace(/ ·.*/, '')) + '</b>이 채택됐습니다. ' +
+        '요강이 「2가지 유형 중 유리한 것 적용」이라 두 값을 모두 내고 높은 쪽을 씁니다.');
+  } else if (sp.mode === 'base') {
     h += box('석차등급산출과목', n1(r.univ.generalScore), 'num',
       r.univ.credits + '학점 · 이수단위 가중평균 <b>' + n1(r.univ.generalAvg) + '점</b>. ' +
       '기본점수 ' + sp.basePoints + '점은 전원 동일하고, 성적으로 갈리는 실질점수는 ' +
@@ -673,6 +706,7 @@ function renderRank() {
   h += '<div class="tblwrap"><table class="plain ranktbl"><thead><tr>' +
     '<th>학번</th><th>이름</th><th class="r">단순 평균등급</th><th class="r">석차</th>' +
     '<th class="r">' + esc(sp.short) + ' 교과점수</th>' +
+    (sp.mode === 'best' ? '<th>채택 유형</th>' : '') +
     (sp.bonusPerCredit ? '<th class="r">가산점</th>' : '') +
     (showEquiv ? '<th class="r">환산등급 상당</th>' : '') +
     '<th class="r">석차</th>' +
@@ -685,6 +719,13 @@ function renderRank() {
       '<td class="r num">' + f2(r.plain.gpa) + '</td>' +
       '<td class="r num">' + (r.plainRank ? r.plainRank.rank : '—') + '</td>' +
       '<td class="r num">' + fscore(r.univ.score) + '</td>' +
+      (sp.mode === 'best'
+        ? '<td style="font-size:.8rem">' + (r.univ.best
+            ? '<span class="pill ach">' + esc(r.univ.best.label.replace(/ ·.*/, '')) + '</span> ' +
+              '<span style="color:var(--faint)">' +
+              (r.univ.alts || []).map(function (a) { return nAlt(a.avg); }).join(' / ') + '</span>'
+            : '—') + '</td>'
+        : '') +
       (sp.bonusPerCredit
         ? '<td class="r num" style="color:var(--up)">+' + n1(r.univ.bonus) +
           ' <span style="color:var(--faint);font-size:.78rem">' + r.univ.bonusCredits + '학점</span></td>'

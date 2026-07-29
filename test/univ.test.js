@@ -908,6 +908,117 @@ eq('외대는 가산점 필드 없음', HUFS.bonusPerCredit, undefined);
 eq('  외대 점수는 종전대로', U.computeUniv(STU, HUFS, OPT).score, 955.714285);
 eq('외대는 base도 채워진다 (pooled 공통)', U.computeUniv(STU, HUFS, OPT).base, 955.714285);
 
+/* ═════════ 21. 가천대 학생부우수자 — 두 유형 중 유리한 것 ═════════ */
+section('21. 가천대 학생부우수자전형 — 규격');
+const GS = U.UNIVS.gachonS;
+eq('산출 구조는 best', GS.mode, 'best');
+eq('지역균형과 달리 공통과목을 반영', GS.excludeCommon, false);
+eq('  지역균형은 공통과목 미반영', GACHON.excludeCommon, true);
+eq('유형 2가지', GS.alternatives.length, 2);
+eq('유형1 변환등급 밴드', JSON.stringify(GS.alternatives[0].bands),
+   JSON.stringify([[1, 2, 'A'], [3, 4, 'B'], [5, 5, 'C'], [6, 7, 'D'], [8, 9, 'E']]));
+eq('유형1 배점 A100 B99.5 C99 D90 E70', JSON.stringify(GS.alternatives[0].pointOf),
+   JSON.stringify({ A: 100, B: 99.5, C: 99, D: 90, E: 70 }));
+eq('유형2 상위 10과목', GS.alternatives[1].topN, 10);
+eq('유형2 배점표', GS.alternatives[1].gradeConv.join(','), '100,99.5,99,98.5,98,97.5,85,60,30');
+const gsv = o => U.evalRecord(rec(Object.assign({ credit: 3 }, o)), GS, OPT);
+[[1, 'A', 100], [2, 'A', 100], [3, 'B', 99.5], [4, 'B', 99.5], [5, 'C', 99],
+ [6, 'D', 90], [7, 'D', 90], [8, 'E', 70], [9, 'E', 70]].forEach(([g, cg, pt]) => {
+  const x = gsv({ category: '국어', subject: '문학', grade: g });
+  eq(`${g}등급 → 유형1 ${cg}(${pt})`, x.convGrade + '/' + x.altUse.t1, cg + '/' + pt);
+});
+[[1, 100], [2, 99.5], [3, 99], [4, 98.5], [5, 98], [6, 97.5], [7, 85], [8, 60], [9, 30]]
+  .forEach(([g, pt]) => eq(`${g}등급 → 유형2 ${pt}`,
+    gsv({ category: '국어', subject: '문학', grade: g }).altUse.t2, pt));
+eq('진로선택은 미반영',
+   gsv({ category: '수학', subject: '기하', ach: 'A' }).reason, '이 전형은 진로선택 미반영');
+eq('공통과목은 반영', gsv({ category: '국어', subject: '국어', grade: 1 }).included, true);
+eq('체예는 반영교과 아님', gsv({ category: '체육', subject: '체육', ach: 'A' }).reason,
+   '반영교과 아님 (체예)');
+
+section('21-b. 종합 시나리오 (손계산 대조) — 유형2가 유리한 경우');
+/*  과목 11개 (공통·일반선택). 유형2는 석차등급 우수 10과목만 골라 8등급 과목을 잘라낸다.
+    유형1: (4×100 + 4×99.5 + 4×100 + 3×99 + 4×99.5 + 4×100 + 4×90 + 4×99.5
+            + 3×90 + 3×70 + 3×99.5) = 3829.5 ÷ 40학점 = 95.7375
+    유형2: 8등급 물리학Ⅰ(3학점) 제외한 10과목
+           400+398+398+396+396+394+295.5+294+390+255 = 3616.5 ÷ 37학점 = 97.743243…
+    → 유형2 채택                                                              */
+const GS_STU = [
+  rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 1 }),
+  rec({ year: 1, sem: 1, category: '수학', subject: '수학', credit: 4, grade: 3 }),
+  rec({ year: 1, sem: 1, category: '영어', subject: '영어', credit: 4, grade: 2 }),
+  rec({ year: 1, sem: 2, category: '사회(역사/도덕포함)', subject: '통합사회', credit: 3, grade: 5 }),
+  rec({ year: 1, sem: 2, category: '과학', subject: '통합과학', credit: 4, grade: 4 }),
+  rec({ year: 2, sem: 1, category: '국어', subject: '문학', credit: 4, grade: 2 }),
+  rec({ year: 2, sem: 1, category: '수학', subject: '미적분', credit: 4, grade: 6 }),
+  rec({ year: 2, sem: 1, category: '영어', subject: '영어Ⅰ', credit: 4, grade: 3 }),
+  rec({ year: 2, sem: 2, category: '사회(역사/도덕포함)', subject: '생활과 윤리', credit: 3, grade: 7 }),
+  rec({ year: 2, sem: 2, category: '과학', subject: '물리학Ⅰ', credit: 3, grade: 8 }),
+  rec({ year: 3, sem: 1, category: '한국사', subject: '한국사', credit: 3, grade: 4 }),
+  rec({ year: 1, sem: 1, category: '체육', subject: '체육', credit: 2, ach: 'A' }),
+  rec({ year: 3, sem: 1, category: '수학', subject: '기하', credit: 3, ach: 'A' })
+];
+const gu2 = U.computeUniv(GS_STU, GS, OPT);
+const alt = {}; gu2.alts.forEach(a => alt[a.key] = a);
+eq('유형1은 11과목 전부', alt.t1.items.length, 11);
+eq('  학점 40', alt.t1.credits, 40);
+eq('  배점 합 3829.5', alt.t1.weighted, 3829.5);
+near('  평균 95.7375', alt.t1.avg, 95.7375);
+eq('유형2는 10과목만', alt.t2.items.length, 10);
+eq('  학점 37', alt.t2.credits, 37);
+eq('  배점 합 3616.5', alt.t2.weighted, 3616.5);
+near('  평균 97.743243…', alt.t2.avg, 3616.5 / 37);
+eq('8등급 물리학Ⅰ이 유형2에서 잘림',
+   alt.t2.items.some(x => x.subject === '물리학Ⅰ'), false);
+eq('유형2 채택', gu2.bestKey, 't2');
+eq('  유형1은 미채택', alt.t1.chosen, false);
+eq('최종 점수 = 유형2 평균 (소수 넷째자리 반올림)',
+   gu2.score, Math.round(3616.5 / 37 * 10000) / 10000);
+eq('진로선택 기하는 제외',
+   gu2.excluded.find(x => x.subject === '기하').reason, '이 전형은 진로선택 미반영');
+eq('체예도 제외', gu2.excluded.find(x => x.subject === '체육').reason, '반영교과 아님 (체예)');
+eq('체예 성취도 평균은 보조 지표로 산출', gu2.artsPe.count, 1);
+
+section('21-c. 유형1이 유리한 경우');
+/* 과목이 10개 이하면 유형2가 전 과목을 쓰므로, 상위 등급 위주면 유형1이 이길 수 있다.
+   전 과목 1등급이면 유형1 = 100, 유형2 = 100 → 동률이라 유형1(첫 유형) 채택 */
+const allTop = [
+  rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 1 }),
+  rec({ year: 1, sem: 1, category: '수학', subject: '수학', credit: 4, grade: 1 })
+];
+const guT = U.computeUniv(allTop, GS, OPT);
+eq('전 과목 1등급 → 두 유형 모두 100', [guT.alts[0].avg, guT.alts[1].avg].join('/'), '100/100');
+eq('  동률이면 앞 유형 채택', guT.bestKey, 't1');
+/* 전 과목 2등급: 유형1 A=100, 유형2 99.5 → 유형1이 유리 */
+const allTwo = [
+  rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 2 }),
+  rec({ year: 1, sem: 1, category: '수학', subject: '수학', credit: 4, grade: 2 })
+];
+const gu2b = U.computeUniv(allTwo, GS, OPT);
+eq('전 과목 2등급 → 유형1 100 · 유형2 99.5', [gu2b.alts[0].avg, gu2b.alts[1].avg].join('/'), '100/99.5');
+eq('  유형1 채택', gu2b.bestKey, 't1');
+eq('  최종 100', gu2b.score, 100);
+/* 전 과목 6등급: 유형1 D=90, 유형2 97.5 → 유형2가 유리 */
+const allSix = [
+  rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 6 })
+];
+const gu6 = U.computeUniv(allSix, GS, OPT);
+eq('전 과목 6등급 → 유형1 90 · 유형2 97.5', [gu6.alts[0].avg, gu6.alts[1].avg].join('/'), '90/97.5');
+eq('  유형2 채택', gu6.bestKey, 't2');
+
+section('21-d. 유형2는 10과목 미만이면 있는 것만 쓴다');
+eq('과목 2개면 유형2도 2과목', U.computeUniv(allTwo, GS, OPT).alts[1].items.length, 2);
+eq('  후보 수도 2', U.computeUniv(allTwo, GS, OPT).alts[1].candidates, 2);
+eq('반영 과목이 없으면 점수 null',
+   U.computeUniv([rec({ year: 1, sem: 1, category: '체육', subject: '체육', credit: 2, ach: 'A' })],
+                 GS, OPT).score, null);
+
+section('21-e. 지역균형과 학생부우수자는 별개 규격');
+eq('둘 다 가천대', [U.UNIVS.gachon.name, GS.name].join('/'), '가천대학교/가천대학교');
+eq('산출 구조가 다르다', [U.UNIVS.gachon.mode, GS.mode].join('/'), 'grouped/best');
+eq('같은 학생도 점수가 다르다',
+   U.computeUniv(GS_STU, GACHON, OPT).score !== gu2.score, true);
+
 /* ═════════ 결과 ═════════ */
 console.log('\n' + '─'.repeat(60));
 if (failures.length) {
