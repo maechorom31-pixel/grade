@@ -676,6 +676,79 @@
             ] }
         ];
       }
+    },
+
+    /* ────────── 가천대학교 · 학생부우수자전형 ────────── */
+    gachonS: {
+      id: 'gachonS', name: '가천대학교', short: '가천대(우수자)',
+      types: '학생부우수자전형',
+      target: '전 학년 반영 · 2가지 유형 중 유리한 것 적용',
+      formula: '유형1(변환등급 평균)과 유형2(석차등급 우수 10과목 평균) 중 높은 쪽 채택 · 둘 다 이수단위 가중',
+      ratioNote: '전 학년 반영 · 학년별 가중치 없음',
+      rawNote: '유형1은 1·2등급 A · 3·4등급 B · 5등급 C · 6·7등급 D · 8·9등급 E (A 100 · B 99.5 · C 99 · D 90 · E 70), 유형2는 석차등급을 배점으로 직접 환산',
+      mode: 'best',
+      scaleMax: 100,
+      trunc: null,
+      round: 4,
+      excludeCommon: false,        // 지역균형과 달리 공통과목을 반영한다
+      careerAreaLimited: true,
+      areas: ['국어', '수학', '영어', '사회', '과학'],
+      areaNote: '국어 · 수학 · 영어 · 사회 · 과학',
+
+      alternatives: [
+        { key: 't1', label: '유형1 · 변환등급 적용',
+          note: '1·2등급 A · 3·4등급 B · 5등급 C · 6·7등급 D · 8·9등급 E → A 100 · B 99.5 · C 99 · D 90 · E 70',
+          bands: [[1, 2, 'A'], [3, 4, 'B'], [5, 5, 'C'], [6, 7, 'D'], [8, 9, 'E']],
+          pointOf: { A: 100, B: 99.5, C: 99, D: 90, E: 70 } },
+        { key: 't2', label: '유형2 · 석차등급 우수 10과목',
+          note: '1등급 100 · 2등급 99.5 · 3등급 99 · 4등급 98.5 · 5등급 98 · 6등급 97.5 · 7등급 85 · 8등급 60 · 9등급 30',
+          gradeConv: [100, 99.5, 99, 98.5, 98, 97.5, 85, 60, 30], topN: 10 }
+      ],
+
+      /* 두 유형 모두 공통·일반선택만 쓴다 — 진로선택은 반영하지 않는다 */
+      equivScale: null,
+      tiebreakers: [
+        { key: 'artsPe', label: '체육·예술 성취도 평균', better: 'high',
+          note: '참고 지표 — 학생부우수자전형의 동점자 기준은 요강에서 따로 확인해야 합니다' }
+      ],
+
+      detail: [
+        { h: '변환등급', get: function (it) { return it.convGrade; } },
+        { h: '유형1', get: function (it) { return it.altUse ? it.altUse.t1 : null; } },
+        { h: '유형2', get: function (it) {
+            if (!it.altUse) return null;
+            return (it.altTop && it.altTop.t2) ? it.altUse.t2 : '제외'; } }
+      ],
+
+      convert: function (it, spec) {
+        if (it.kind === 'career') { it.reason = '이 전형은 진로선택 미반영'; return; }
+        if (!(it.grade >= 1 && it.grade <= 9)) { it.reason = '석차등급 없음'; return; }
+        it.altUse = {};
+        spec.alternatives.forEach(function (alt) {
+          it.altUse[alt.key] = alt.bands
+            ? alt.pointOf[fromBands(alt.bands, it.grade)]
+            : alt.gradeConv[it.grade - 1];
+          if (alt.bands) it.convGrade = fromBands(alt.bands, it.grade);
+        });
+        it.use = it.altUse[spec.alternatives[0].key];
+        it.basis = it.grade + '등급 → ' + it.convGrade;
+      },
+
+      specTables: function (sp) {
+        var t1 = sp.alternatives[0], t2 = sp.alternatives[1];
+        var rows1 = t1.bands.map(function (b) {
+          return [{ v: b[0] === b[1] ? b[0] + '등급' : b[0] + '·' + b[1] + '등급' },
+                  { v: b[2], strong: true }, { v: t1.pointOf[b[2]], num: true }]; });
+        var rows2 = [];
+        for (var g = 1; g <= 9; g++)
+          rows2.push([{ v: g, grade: g }, { v: t2.gradeConv[g - 1], num: true }]);
+        return [
+          { title: '유형1 — 변환등급 배점 (공통 · 일반선택 전체)',
+            head: ['석차등급', '변환등급', '배점'], rows: rows1 },
+          { title: '유형2 — 석차등급 배점 (우수 10과목만)',
+            head: ['석차등급', '배점'], rows: rows2 }
+        ];
+      }
     }
   };
 
@@ -806,7 +879,46 @@
       artsPe: computeArtsPe(items)
     };
 
-    if (spec.mode === 'base') {
+    if (spec.mode === 'best') {
+      /* 여러 산출 유형을 각각 계산해 유리한(높은) 쪽을 채택한다.
+         과목별 유형별 배점은 convert()가 it.altUse에 미리 담아 둔다. */
+      var pool = inc.filter(function (it) { return it.kind !== 'career'; });
+      var alts = spec.alternatives.map(function (alt) {
+        var cand = pool.filter(function (it) {
+          return it.altUse && it.altUse[alt.key] !== undefined && it.altUse[alt.key] !== null;
+        });
+        var picked = cand;
+        if (alt.topN) {
+          /* 석차등급이 우수한 상위 N과목. 등급이 같으면 이수단위가 큰 과목을 먼저 담는다
+             (요강 미규정 구간 — 등급이 같으면 배점도 같아 순서가 평균에 영향을 준다). */
+          picked = cand.slice().sort(function (a, b) {
+            return a.grade - b.grade || b.credit - a.credit;
+          }).slice(0, alt.topN);
+        }
+        var pk = {};
+        picked.forEach(function (it) { pk[it.subject + '|' + it.year + '-' + it.sem] = 1; });
+        cand.forEach(function (it) {
+          it.altTop = it.altTop || {};
+          it.altTop[alt.key] = !!pk[it.subject + '|' + it.year + '-' + it.sem];
+        });
+        var n = 0, d = 0;
+        picked.forEach(function (it) { n += it.credit * it.altUse[alt.key]; d += it.credit; });
+        return { key: alt.key, label: alt.label, note: alt.note, topN: alt.topN || null,
+                 items: picked, candidates: cand.length,
+                 credits: d, weighted: n, avg: d > 0 ? n / d : null };
+      });
+      var live = alts.filter(function (a) { return a.avg !== null; });
+      var best = null;
+      live.forEach(function (a) { if (!best || a.avg > best.avg) best = a; });
+      alts.forEach(function (a) { a.chosen = !!(best && a.key === best.key); });
+      out.alts = alts;
+      out.best = best;
+      out.bestKey = best ? best.key : null;
+      out.credits = best ? best.credits : 0;
+      out.weighted = best ? best.weighted : 0;
+      out.score = best ? best.avg : null;
+      if (spec.round && out.score !== null) out.score = roundTo(out.score, spec.round);
+    } else if (spec.mode === 'base') {
       /* 석차등급산출과목 — 기본점수 + (이수단위 가중평균 등급점수 × 계수) */
       var gi = inc.filter(function (it) { return it.kind !== 'career'; });
       var gn = 0, gd = 0;
