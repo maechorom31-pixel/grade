@@ -931,10 +931,22 @@ const gsv = o => U.evalRecord(rec(Object.assign({ credit: 3 }, o)), GS, OPT);
   .forEach(([g, pt]) => eq(`${g}등급 → 유형2 ${pt}`,
     gsv({ category: '국어', subject: '문학', grade: g }).altUse.t2, pt));
 eq('진로선택은 미반영',
-   gsv({ category: '수학', subject: '기하', ach: 'A' }).reason, '이 전형은 진로선택 미반영');
+   gsv({ category: '수학', subject: '기하', ach: 'A' }).reason, '성취도 산출 과목 (석차등급만 반영)');
 eq('공통과목은 반영', gsv({ category: '국어', subject: '국어', grade: 1 }).included, true);
-eq('체예는 반영교과 아님', gsv({ category: '체육', subject: '체육', ach: 'A' }).reason,
-   '반영교과 아님 (체예)');
+/* 교과 제한이 없다 — 석차등급이 나오는 일반선택은 교과와 무관하게 들어온다 */
+eq('정보(기술·가정) 일반선택도 반영',
+   gsv({ category: '기술・가정/제2외국어/한문/교양', subject: '정보', grade: 4 }).included, true);
+eq('일본어Ⅰ(제2외국어) 일반선택도 반영',
+   gsv({ category: '기술・가정/제2외국어/한문/교양', subject: '일본어Ⅰ', grade: 5 }).included, true);
+eq('한문Ⅰ도 반영', gsv({ category: '한문', subject: '한문Ⅰ', grade: 3 }).included, true);
+/* 석차등급이 없는 과목은 교과가 열려 있어도 자연히 빠진다 */
+eq('체육 일반선택도 성취도만이라 제외 — 사유가 진로선택이라 단정하지 않는다',
+   gsv({ category: '체육', subject: '체육', ach: 'A' }).reason, '성취도 산출 과목 (석차등급만 반영)');
+eq('교양 논술은 P라 제외',
+   gsv({ category: '교양', subject: '논술', ach: 'P' }).reason, '이수(P) 과목');
+eq('  체예 성취도 평균은 그래도 산출된다',
+   U.computeUniv([rec({ year: 1, sem: 1, category: '체육', subject: '체육', credit: 2, ach: 'A' })],
+                 GS, OPT).artsPe.count, 1);
 
 section('21-b. 종합 시나리오 (손계산 대조) — 유형2가 유리한 경우');
 /*  과목 11개 (공통·일반선택). 유형2는 석차등급 우수 10과목만 골라 8등급 과목을 잘라낸다.
@@ -975,8 +987,9 @@ eq('  유형1은 미채택', alt.t1.chosen, false);
 eq('최종 점수 = 유형2 평균 (소수 넷째자리 반올림)',
    gu2.score, Math.round(3616.5 / 37 * 10000) / 10000);
 eq('진로선택 기하는 제외',
-   gu2.excluded.find(x => x.subject === '기하').reason, '이 전형은 진로선택 미반영');
-eq('체예도 제외', gu2.excluded.find(x => x.subject === '체육').reason, '반영교과 아님 (체예)');
+   gu2.excluded.find(x => x.subject === '기하').reason, '성취도 산출 과목 (석차등급만 반영)');
+eq('체육도 같은 사유로 제외 (교과 제한이 아니라 산출 방식 때문)',
+   gu2.excluded.find(x => x.subject === '체육').reason, '성취도 산출 과목 (석차등급만 반영)');
 eq('체예 성취도 평균은 보조 지표로 산출', gu2.artsPe.count, 1);
 
 section('21-c. 유형1이 유리한 경우');
