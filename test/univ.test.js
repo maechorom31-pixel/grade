@@ -910,7 +910,7 @@ eq('외대는 base도 채워진다 (pooled 공통)', U.computeUniv(STU, HUFS, OP
 
 /* ═════════ 21. 가천대 학생부우수자 — 두 유형 중 유리한 것 ═════════ */
 section('21. 가천대 학생부우수자전형 — 규격');
-const GS = U.UNIVS.gachonS;
+const GS = U.resolve('gachonS', 'inmun');
 eq('산출 구조는 best', GS.mode, 'best');
 eq('지역균형과 달리 공통과목을 반영', GS.excludeCommon, false);
 eq('  지역균형은 공통과목 미반영', GACHON.excludeCommon, true);
@@ -933,63 +933,88 @@ const gsv = o => U.evalRecord(rec(Object.assign({ credit: 3 }, o)), GS, OPT);
 eq('진로선택은 미반영',
    gsv({ category: '수학', subject: '기하', ach: 'A' }).reason, '성취도 산출 과목 (석차등급만 반영)');
 eq('공통과목은 반영', gsv({ category: '국어', subject: '국어', grade: 1 }).included, true);
-/* 교과 제한이 없다 — 석차등급이 나오는 일반선택은 교과와 무관하게 들어온다 */
-eq('정보(기술·가정) 일반선택도 반영',
-   gsv({ category: '기술・가정/제2외국어/한문/교양', subject: '정보', grade: 4 }).included, true);
-eq('일본어Ⅰ(제2외국어) 일반선택도 반영',
-   gsv({ category: '기술・가정/제2외국어/한문/교양', subject: '일본어Ⅰ', grade: 5 }).included, true);
-eq('한문Ⅰ도 반영', gsv({ category: '한문', subject: '한문Ⅰ', grade: 3 }).included, true);
-/* 석차등급이 없는 과목은 교과가 열려 있어도 자연히 빠진다 */
-eq('체육 일반선택도 성취도만이라 제외 — 사유가 진로선택이라 단정하지 않는다',
-   gsv({ category: '체육', subject: '체육', ach: 'A' }).reason, '성취도 산출 과목 (석차등급만 반영)');
-eq('교양 논술은 P라 제외',
-   gsv({ category: '교양', subject: '논술', ach: 'P' }).reason, '이수(P) 과목');
+/* 반영교과는 계열별로 갈린다 */
+eq('인문계열 반영교과', U.resolve('gachonS', 'inmun').areas.join(','), '국어,수학,영어,사회');
+eq('자연계열 반영교과', U.resolve('gachonS', 'jayeon').areas.join(','), '국어,수학,영어,과학');
+eq('의예·한의예·약학 반영교과', U.resolve('gachonS', 'med').areas.join(','), '국어,수학,영어,과학');
+const gsvV = (k, o) => U.evalRecord(rec(Object.assign({ credit: 3 }, o)),
+                                    U.resolve('gachonS', k), OPT);
+eq('인문계열에서 과학은 미반영',
+   gsvV('inmun', { category: '과학', subject: '물리학Ⅰ', grade: 2 }).reason, '반영교과 아님 (과학)');
+eq('자연계열에서 사회는 미반영',
+   gsvV('jayeon', { category: '사회(역사/도덕포함)', subject: '생활과 윤리', grade: 2 }).reason,
+   '반영교과 아님 (사회)');
+eq('인문계열은 한국사를 사회로 반영',
+   gsvV('inmun', { category: '한국사', subject: '한국사', grade: 3 }).included, true);
+eq('자연계열은 한국사도 미반영',
+   gsvV('jayeon', { category: '한국사', subject: '한국사', grade: 3 }).reason, '반영교과 아님 (사회)');
+/* 반영교과 밖 교과는 석차등급이 있어도 안 들어온다 */
+eq('정보(기술·가정)는 반영교과 밖',
+   gsvV('inmun', { category: '기술・가정/제2외국어/한문/교양', subject: '정보', grade: 4 }).reason,
+   '반영교과 아님 (기타)');
+eq('일본어Ⅰ도 반영교과 밖',
+   gsvV('inmun', { category: '기술・가정/제2외국어/한문/교양', subject: '일본어Ⅰ', grade: 5 }).reason,
+   '반영교과 아님 (기타)');
+eq('체예도 반영교과 밖',
+   gsvV('inmun', { category: '체육', subject: '체육', ach: 'A' }).reason, '반영교과 아님 (체예)');
 eq('  체예 성취도 평균은 그래도 산출된다',
    U.computeUniv([rec({ year: 1, sem: 1, category: '체육', subject: '체육', credit: 2, ach: 'A' })],
-                 GS, OPT).artsPe.count, 1);
+                 U.resolve('gachonS', 'inmun'), OPT).artsPe.count, 1);
 
-section('21-b. 종합 시나리오 (손계산 대조) — 유형2가 유리한 경우');
-/*  과목 11개 (공통·일반선택). 유형2는 석차등급 우수 10과목만 골라 8등급 과목을 잘라낸다.
-    유형1: (4×100 + 4×99.5 + 4×100 + 3×99 + 4×99.5 + 4×100 + 4×90 + 4×99.5
-            + 3×90 + 3×70 + 3×99.5) = 3829.5 ÷ 40학점 = 95.7375
-    유형2: 8등급 물리학Ⅰ(3학점) 제외한 10과목
-           400+398+398+396+396+394+295.5+294+390+255 = 3616.5 ÷ 37학점 = 97.743243…
+section('21-b. 종합 시나리오 (손계산 대조) — 자연계열, 유형2가 유리한 경우');
+/*  자연계열 반영교과(국·수·영·과) 안의 12과목. 사회·체예·진로선택은 빠진다.
+    유형1 — 12과목 전부
+      국어4(1등급 A100)=400  수학4(3등급 B99.5)=398  영어4(2등급 A100)=400
+      통합과학4(4등급 B99.5)=398  문학4(2등급 A100)=400  미적분4(6등급 D90)=360
+      영어Ⅰ4(3등급 B99.5)=398  물리학Ⅰ3(8등급 E70)=210  화학Ⅰ3(5등급 C99)=297
+      확률과통계4(4등급 B99.5)=398  독서4(2등급 A100)=400  영어Ⅱ4(3등급 B99.5)=398
+      합 4457 ÷ 46학점 = 96.891304…
+    유형2 — 석차등급 우수 10과목 (미적분 6등급·물리학Ⅰ 8등급이 잘린다)
+      400+398+398+398+396+396+396+394+394+294 = 3864 ÷ 39학점 = 99.076923…
     → 유형2 채택                                                              */
 const GS_STU = [
   rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 1 }),
   rec({ year: 1, sem: 1, category: '수학', subject: '수학', credit: 4, grade: 3 }),
   rec({ year: 1, sem: 1, category: '영어', subject: '영어', credit: 4, grade: 2 }),
-  rec({ year: 1, sem: 2, category: '사회(역사/도덕포함)', subject: '통합사회', credit: 3, grade: 5 }),
   rec({ year: 1, sem: 2, category: '과학', subject: '통합과학', credit: 4, grade: 4 }),
   rec({ year: 2, sem: 1, category: '국어', subject: '문학', credit: 4, grade: 2 }),
   rec({ year: 2, sem: 1, category: '수학', subject: '미적분', credit: 4, grade: 6 }),
   rec({ year: 2, sem: 1, category: '영어', subject: '영어Ⅰ', credit: 4, grade: 3 }),
-  rec({ year: 2, sem: 2, category: '사회(역사/도덕포함)', subject: '생활과 윤리', credit: 3, grade: 7 }),
   rec({ year: 2, sem: 2, category: '과학', subject: '물리학Ⅰ', credit: 3, grade: 8 }),
+  rec({ year: 2, sem: 2, category: '과학', subject: '화학Ⅰ', credit: 3, grade: 5 }),
+  rec({ year: 3, sem: 1, category: '수학', subject: '확률과 통계', credit: 4, grade: 4 }),
+  rec({ year: 3, sem: 1, category: '국어', subject: '독서', credit: 4, grade: 2 }),
+  rec({ year: 3, sem: 1, category: '영어', subject: '영어Ⅱ', credit: 4, grade: 3 }),
+  /* 아래는 자연계열에서 빠지는 것들 */
+  rec({ year: 2, sem: 2, category: '사회(역사/도덕포함)', subject: '생활과 윤리', credit: 3, grade: 7 }),
   rec({ year: 3, sem: 1, category: '한국사', subject: '한국사', credit: 3, grade: 4 }),
   rec({ year: 1, sem: 1, category: '체육', subject: '체육', credit: 2, ach: 'A' }),
   rec({ year: 3, sem: 1, category: '수학', subject: '기하', credit: 3, ach: 'A' })
 ];
-const gu2 = U.computeUniv(GS_STU, GS, OPT);
+const GSJ = U.resolve('gachonS', 'jayeon');
+const gu2 = U.computeUniv(GS_STU, GSJ, OPT);
 const alt = {}; gu2.alts.forEach(a => alt[a.key] = a);
-eq('유형1은 11과목 전부', alt.t1.items.length, 11);
-eq('  학점 40', alt.t1.credits, 40);
-eq('  배점 합 3829.5', alt.t1.weighted, 3829.5);
-near('  평균 95.7375', alt.t1.avg, 95.7375);
-eq('유형2는 10과목만', alt.t2.items.length, 10);
-eq('  학점 37', alt.t2.credits, 37);
-eq('  배점 합 3616.5', alt.t2.weighted, 3616.5);
-near('  평균 97.743243…', alt.t2.avg, 3616.5 / 37);
-eq('8등급 물리학Ⅰ이 유형2에서 잘림',
-   alt.t2.items.some(x => x.subject === '물리학Ⅰ'), false);
+eq('유형1은 반영 12과목 전부', alt.t1.items.length, 12);
+eq('  학점 46', alt.t1.credits, 46);
+eq('  배점 합 4457', alt.t1.weighted, 4457);
+near('  평균 96.891304…', alt.t1.avg, 4457 / 46);
+eq('유형2는 상위 10과목만', alt.t2.items.length, 10);
+eq('  학점 39', alt.t2.credits, 39);
+eq('  배점 합 3864', alt.t2.weighted, 3864);
+near('  평균 99.076923…', alt.t2.avg, 3864 / 39);
+eq('6등급 미적분이 유형2에서 잘림', alt.t2.items.some(x => x.subject === '미적분'), false);
+eq('8등급 물리학Ⅰ도 잘림', alt.t2.items.some(x => x.subject === '물리학Ⅰ'), false);
 eq('유형2 채택', gu2.bestKey, 't2');
 eq('  유형1은 미채택', alt.t1.chosen, false);
 eq('최종 점수 = 유형2 평균 (소수 넷째자리 반올림)',
-   gu2.score, Math.round(3616.5 / 37 * 10000) / 10000);
-eq('진로선택 기하는 제외',
+   gu2.score, Math.round(3864 / 39 * 10000) / 10000);
+near('  나쁜 등급을 잘라 2.19점 올랐다', alt.t2.avg - alt.t1.avg, 3864 / 39 - 4457 / 46);
+eq('자연계열이라 사회·한국사는 제외',
+   gu2.excluded.find(x => x.subject === '한국사').reason, '반영교과 아님 (사회)');
+eq('진로선택 기하는 산출 방식 때문에 제외',
    gu2.excluded.find(x => x.subject === '기하').reason, '성취도 산출 과목 (석차등급만 반영)');
-eq('체육도 같은 사유로 제외 (교과 제한이 아니라 산출 방식 때문)',
-   gu2.excluded.find(x => x.subject === '체육').reason, '성취도 산출 과목 (석차등급만 반영)');
+eq('체예는 반영교과 밖',
+   gu2.excluded.find(x => x.subject === '체육').reason, '반영교과 아님 (체예)');
 eq('체예 성취도 평균은 보조 지표로 산출', gu2.artsPe.count, 1);
 
 section('21-c. 유형1이 유리한 경우');
@@ -1031,6 +1056,10 @@ eq('둘 다 가천대', [U.UNIVS.gachon.name, GS.name].join('/'), '가천대학�
 eq('산출 구조가 다르다', [U.UNIVS.gachon.mode, GS.mode].join('/'), 'grouped/best');
 eq('같은 학생도 점수가 다르다',
    U.computeUniv(GS_STU, GACHON, OPT).score !== gu2.score, true);
+eq('계열이 바뀌면 점수도 바뀐다',
+   U.computeUniv(GS_STU, U.resolve('gachonS', 'inmun'), OPT).score !== gu2.score, true);
+eq('자연계열과 의예·한의예·약학은 반영교과가 같다',
+   U.computeUniv(GS_STU, U.resolve('gachonS', 'med'), OPT).score, gu2.score);
 
 /* ═════════ 결과 ═════════ */
 console.log('\n' + '─'.repeat(60));
