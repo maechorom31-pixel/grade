@@ -1622,6 +1622,87 @@ td.dv{font-weight:700}
     return it;
   }
 
+  /* ═══════════════ Z점수 계열 유틸 (연세대) ═══════════════
+     생기부의 원점수 / 과목평균(표준편차)에서 Z점수를 내고,
+     표준정규분포로 석차백분율(상위 누적비율)을 구한 뒤 환산점수로 바꾼다.
+       Z            = (원점수 − 과목평균) ÷ 표준편차
+       석차백분율   = 1 − Φ(Z)
+       환산점수     = 100 × (1 − 석차백분율)
+     단, Z로 산출한 석차백분율이 그 과목 석차등급의 백분율 상한을 넘으면 상한값을 쓴다. */
+
+  /* 오차함수 (Abramowitz–Stegun 7.1.26, 오차 ~1.5e-7) */
+  function erf(x) {
+    var sign = x < 0 ? -1 : 1;
+    x = Math.abs(x);
+    var a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741,
+        a4 = -1.453152027, a5 = 1.061405429, pp = 0.3275911;
+    var t = 1 / (1 + pp * x);
+    var y = 1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+    return sign * y;
+  }
+  function normCdf(z) { return 0.5 * (1 + erf(z / Math.SQRT2)); }
+  /* 석차백분율 = 나보다 위에 있는 비율 */
+  function zToPercentile(z) {
+    if (z === null || z === undefined || !isFinite(z)) return null;
+    return 1 - normCdf(z);
+  }
+  function zScore(rec) {
+    if (rec.raw === null || rec.avg === null || rec.std === null) return null;
+    if (!(rec.std > 0)) return null;
+    return (rec.raw - rec.avg) / rec.std;
+  }
+  /* 9등급제 누적비율 — 요강의 「교과등급별 석차백분율」 표와 같다 (9등급은 상한 없음) */
+  var GRADE_PCT_CAP = [0.04, 0.11, 0.23, 0.40, 0.60, 0.77, 0.89, 0.96];
+  /* Z로 낸 석차백분율에 등급 상한을 씌운다 → {pct, capped} */
+  function cappedPercentile(z, grade) {
+    var pct = zToPercentile(z);
+    if (pct === null) return { pct: null, capped: false, raw: null };
+    var cap = (grade >= 1 && grade <= GRADE_PCT_CAP.length) ? GRADE_PCT_CAP[grade - 1] : null;
+    if (cap !== null && pct > cap) return { pct: cap, capped: true, raw: pct };
+    return { pct: pct, capped: false, raw: pct };
+  }
+  function pctToScore(pct) { return pct === null ? null : 100 * (1 - pct); }
+
+  /* 진로선택(전문교과 포함) A/B/C 판정 — 등급 기준과 원점수 기준 중 높은 점수를 쓴다.
+       등급 기준   1~3등급 A · 4~6등급 B · 7~9등급 C
+       원점수 기준 80점 이상 A · 60점 이상 80점 미만 B · 60점 미만 C
+       점수        A 20 · B 15 · C 10
+     성취도만 있는 과목은 3단계 A/B/C를 그대로, 5단계는 A·B→A, C·D→B, E→C로 접는다. */
+  var YS_ABC_POINT = { A: 20, B: 15, C: 10 };
+  function abcByGrade(g) {
+    if (!(g >= 1 && g <= 9)) return null;
+    return g <= 3 ? 'A' : g <= 6 ? 'B' : 'C';
+  }
+  function abcByRaw(raw) {
+    if (raw === null || raw === undefined) return null;
+    return raw >= 80 ? 'A' : raw >= 60 ? 'B' : 'C';
+  }
+  function abcByAch(ach, fiveLevel) {
+    if (!/^[A-E]$/.test(ach || '')) return null;
+    if (!fiveLevel) return /^[ABC]$/.test(ach) ? ach : null;
+    return (ach === 'A' || ach === 'B') ? 'A' : (ach === 'C' || ach === 'D') ? 'B' : 'C';
+  }
+  /* → {abc, point, byGrade, byRaw, byAch, basis} 중 가장 높은 점수를 채택 */
+  function yonseiCareerABC(rec, fiveLevel) {
+    var cands = [];
+    var g = abcByGrade(rec.grade);
+    if (g) cands.push({ abc: g, basis: '등급 기준' });
+    var r = abcByRaw(rec.raw);
+    if (r) cands.push({ abc: r, basis: '원점수 기준' });
+    /* 등급이 표기되지 않은 과목은 성취도로 판정한다 */
+    if (!g) {
+      var a = abcByAch(rec.ach, fiveLevel);
+      if (a) cands.push({ abc: a, basis: fiveLevel ? '성취도(5단계)' : '성취도' });
+    }
+    if (!cands.length) return null;
+    var best = null;
+    cands.forEach(function (c) {
+      c.point = YS_ABC_POINT[c.abc];
+      if (!best || c.point > best.point) best = c;
+    });
+    return { abc: best.abc, point: best.point, basis: best.basis, candidates: cands };
+  }
+
   /* ═══════════════ 체육·예술 교과 성취도 평균 ═══════════════
      교과 점수에는 안 들어가지만 동점자 처리에 쓰이는 보조 지표다.
      (가천대 동점자 처리 1단계 — 성취도 배점 A 3점 · B 2점 · C 1점)
@@ -1999,7 +2080,12 @@ td.dv{font-weight:700}
     truncDiv: truncDiv, truncTo: truncTo, equivGrade: equivGrade,
     evalRecord: evalRecord, computeUniv: computeUniv, computePlain: computePlain,
     rankList: rankList, verdict: verdict, analyze: analyze, computeAll: computeAll,
-    computeArtsPe: computeArtsPe, ARTS_PE_POINT: ARTS_PE_POINT
+    computeArtsPe: computeArtsPe, ARTS_PE_POINT: ARTS_PE_POINT,
+    erf: erf, normCdf: normCdf, zScore: zScore, zToPercentile: zToPercentile,
+    GRADE_PCT_CAP: GRADE_PCT_CAP, cappedPercentile: cappedPercentile,
+    pctToScore: pctToScore, YS_ABC_POINT: YS_ABC_POINT,
+    abcByGrade: abcByGrade, abcByRaw: abcByRaw, abcByAch: abcByAch,
+    yonseiCareerABC: yonseiCareerABC
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.UnivCore = api;

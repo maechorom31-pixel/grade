@@ -1061,6 +1061,82 @@ eq('계열이 바뀌면 점수도 바뀐다',
 eq('자연계열과 의예·한의예·약학은 반영교과가 같다',
    U.computeUniv(GS_STU, U.resolve('gachonS', 'med'), OPT).score, gu2.score);
 
+/* ═════════ 22. 연세대 Z점수 계열 유틸 ═════════ */
+section('22. Z점수 → 석차백분율 → 환산점수');
+near('Φ(0) = 0.5', U.normCdf(0), 0.5, 1e-6);
+near('Φ(1) ≈ 0.8413', U.normCdf(1), 0.8413, 1e-4);
+near('Φ(-1) ≈ 0.1587', U.normCdf(-1), 0.1587, 1e-4);
+near('erf(0) = 0', U.erf(0), 0, 1e-9);
+/* 표준정규 상위누적비율이 9등급 누적비율표와 맞아떨어진다 */
+near('Z=1.75 → 석차백분율 0.04 (1등급 컷)', U.zToPercentile(1.75), 0.04, 5e-4);
+near('Z=1.2263 → 0.11 (2등급 컷)', U.zToPercentile(1.2263), 0.11, 5e-4);
+near('Z=0 → 0.50', U.zToPercentile(0), 0.5, 1e-6);
+eq('요강 등급별 석차백분율 상한표',
+   U.GRADE_PCT_CAP.join(','), '0.04,0.11,0.23,0.4,0.6,0.77,0.89,0.96');
+eq('  9등급제 누적비율표와 같다 (8등급까지)',
+   U.GRADE_PCT_CAP.join(','), require('./simcore.js').CUM_RATIOS.slice(0, 8).join(','));
+
+section('22-b. Z점수 산출과 등급 상한 적용');
+eq('Z = (원점수 − 평균) ÷ 표준편차',
+   U.zScore({ raw: 86, avg: 67.5, std: 15.3 }), (86 - 67.5) / 15.3);
+eq('표준편차 없으면 산출 불가 (진로선택)',
+   U.zScore({ raw: 86, avg: 85.0, std: null }), null);
+eq('표준편차 0이면 산출 불가', U.zScore({ raw: 86, avg: 86, std: 0 }), null);
+eq('원점수 없으면 산출 불가 (체예·교양)',
+   U.zScore({ raw: null, avg: null, std: null }), null);
+/* Z로 낸 백분율이 등급 상한을 넘으면 상한으로 대체 — 학생에게 유리한 방향 */
+let cp = U.cappedPercentile(1.0, 1);          // Z=1 → 0.1587, 1등급 상한 0.04
+eq('1등급인데 Z 백분율 0.1587 → 상한 0.04로 대체', cp.pct, 0.04);
+eq('  대체 표시', cp.capped, true);
+near('  원래 값도 보존', cp.raw, 0.1587, 1e-4);
+cp = U.cappedPercentile(2.0, 1);              // Z=2 → 0.0228, 상한 미만이라 그대로
+near('1등급 + Z 백분율 0.0228 → 상한 미만이라 그대로', cp.pct, 0.0228, 1e-4);
+eq('  대체 아님', cp.capped, false);
+cp = U.cappedPercentile(-1.0, 9);
+eq('9등급은 상한이 없어 그대로', cp.capped, false);
+near('환산점수 = 100 × (1 − 석차백분율) — 백분율 0.04 → 96', U.pctToScore(0.04), 96);
+near('  백분율 0.11 → 89', U.pctToScore(0.11), 89);
+near('  백분율 0.5 → 50', U.pctToScore(0.5), 50);
+
+section('22-c. 진로선택(전문교과 포함) A/B/C — 요강 예시 대조');
+/* [예시1] 심화 영어Ⅰ 3등급(원점수 77점)
+   → 원점수 기준 B, 등급 기준 A → 높은 점수인 A */
+let ab = U.yonseiCareerABC({ grade: 3, raw: 77, ach: '' }, false);
+eq('예시1 심화 영어Ⅰ 3등급·77점 → A', ab.abc, 'A');
+eq('  점수 20', ab.point, 20);
+eq('  채택 근거는 등급 기준', ab.basis, '등급 기준');
+/* [예시2] 고급 물리학Ⅰ 7등급(원점수 69점)
+   → 등급 기준 C, 원점수 기준 B → 높은 점수인 B */
+ab = U.yonseiCareerABC({ grade: 7, raw: 69, ach: '' }, false);
+eq('예시2 고급 물리학Ⅰ 7등급·69점 → B', ab.abc, 'B');
+eq('  점수 15', ab.point, 15);
+eq('  채택 근거는 원점수 기준', ab.basis, '원점수 기준');
+
+eq('등급 기준 1~3등급 → A', [1, 2, 3].map(U.abcByGrade).join(''), 'AAA');
+eq('  4~6등급 → B', [4, 5, 6].map(U.abcByGrade).join(''), 'BBB');
+eq('  7~9등급 → C', [7, 8, 9].map(U.abcByGrade).join(''), 'CCC');
+eq('원점수 80 이상 → A', U.abcByRaw(80), 'A');
+eq('  79.9 → B', U.abcByRaw(79.9), 'B');
+eq('  60 → B', U.abcByRaw(60), 'B');
+eq('  59.9 → C', U.abcByRaw(59.9), 'C');
+eq('배점 A20 · B15 · C10',
+   [U.YS_ABC_POINT.A, U.YS_ABC_POINT.B, U.YS_ABC_POINT.C].join(','), '20,15,10');
+
+section('22-d. 성취도만 있는 과목 — 3단계 · 5단계');
+eq('3단계 A → A', U.abcByAch('A', false), 'A');
+eq('3단계 C → C (그대로)', U.abcByAch('C', false), 'C');
+eq('5단계 A·B → A', [U.abcByAch('A', true), U.abcByAch('B', true)].join(''), 'AA');
+eq('5단계 C·D → B', [U.abcByAch('C', true), U.abcByAch('D', true)].join(''), 'BB');
+eq('5단계 E → C', U.abcByAch('E', true), 'C');
+ab = U.yonseiCareerABC({ grade: null, raw: null, ach: 'A' }, false);
+eq('등급·원점수 없이 성취도 A만 → A(20)', ab.abc + '/' + ab.point, 'A/20');
+ab = U.yonseiCareerABC({ grade: null, raw: null, ach: 'C' }, true);
+eq('5단계 성취도 C → B(15)', ab.abc + '/' + ab.point, 'B/15');
+ab = U.yonseiCareerABC({ grade: null, raw: 85, ach: 'C' }, false);
+eq('원점수 85 + 성취도 C → 원점수 기준 A가 이긴다', ab.abc + '/' + ab.basis, 'A/원점수 기준');
+eq('아무 지표도 없으면 null',
+   U.yonseiCareerABC({ grade: null, raw: null, ach: '' }, false), null);
+
 /* ═════════ 결과 ═════════ */
 console.log('\n' + '─'.repeat(60));
 if (failures.length) {
