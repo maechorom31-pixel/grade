@@ -1137,6 +1137,116 @@ eq('원점수 85 + 성취도 C → 원점수 기준 A가 이긴다', ab.abc + '/
 eq('아무 지표도 없으면 null',
    U.yonseiCareerABC({ grade: null, raw: null, ach: '' }, false), null);
 
+/* ═════════ 23. 연세대 추천형 정량평가 ═════════ */
+section('23. 연세대 — 요강 Z점수 표와 등급점수');
+const YS = U.UNIVS.yonsei;
+eq('요강 Z표 61칸 (3.0 ~ -3.0)', U.YS_Z_TABLE.length, 61);
+[[3.0, 0.0013], [2.0, 0.0228], [1.2, 0.1151], [0.5, 0.3085], [0.0, 0.5],
+ [-0.7, 0.7580], [-1.0, 0.8413], [-2.0, 0.9772], [-3.0, 0.9987]]
+  .forEach(([z, v]) => eq(`Z=${z} → 석차백분율 ${v}`, U.ysPercentile(z), v));
+eq('Z는 소수 셋째자리 반올림 후 0.1 단위 조회', U.ysPercentile(1.2092), 0.1151);
+eq('Z > 3.0은 3.0으로 간주', U.ysPercentile(4.5), 0.0013);
+eq('Z < -3.0은 -3.0으로 간주', U.ysPercentile(-5), 0.9987);
+eq('등급점수표', YS.gradeConv.join(','), '100,95,87.5,75,60,40,25,12.5,5');
+eq('반영과목 A 교과', YS.areasA.join(','), '국어,수학,영어,사회,과학');
+eq('영역 비율 공통30 · 일반50 · 진로20(척도 그대로)',
+   [YS.groupWeight.common, YS.groupWeight.general, YS.groupWeight.career].join(','), '0.3,0.5,1');
+eq('반영과목 B 최대 감점 5점', YS.penaltyMax, 5);
+
+section('23-b. 과목 1건 환산 (등급점수 50% + Z환산 50%)');
+const yv = o => U.evalRecord(rec(Object.assign({ credit: 4 }, o)), YS, OPT);
+/* 수학 2등급, 원점수 86 / 평균 67.5 (σ 15.3) → Z = 18.5/15.3 = 1.2092…
+   → 0.1 조회 1.2 → 석차백분율 0.1151, 2등급 상한 0.11보다 크므로 0.11로 대체
+   → Z환산 100×(1-0.11) = 89, 등급점수 95 → 과목점수 (95+89)/2 = 92 */
+let y = yv({ category: '수학', subject: '수학', grade: 2, raw: 86, avg: 67.5, std: 15.3 });
+near('Z = 1.209', y.ysZ, 1.209);
+eq('  석차백분율 0.1151 → 2등급 상한 0.11로 대체', y.ysPct, 0.11);
+eq('  상한 대체 표시', y.ysCapped, true);
+near('  원래 백분율 0.1151 보존', y.ysPctRaw, 0.1151);
+eq('  Z환산점수 = 100 × (1 − 0.11) = 89', y.ysZScore, 89);
+eq('  등급점수 95 (2등급)', y.ysGradeScore, 95);
+eq('  과목점수 = (95 + 89) / 2 = 92', y.use, 92);
+eq('  공통과목 그룹', y.ysGroup, 'common');
+/* 상한에 안 걸리는 경우 — 5등급, Z = 0.0 → 백분율 0.5 (5등급 상한 0.60 미만) */
+y = yv({ category: '국어', subject: '문학', grade: 5, raw: 70, avg: 70, std: 10 });
+eq('Z=0 → 백분율 0.5, 5등급 상한 0.60 미만이라 그대로', y.ysPct, 0.5);
+eq('  대체 아님', y.ysCapped, false);
+eq('  Z환산 50 · 등급점수 60 → 55', y.use, 55);
+eq('  일반선택 그룹', y.ysGroup, 'general');
+eq('표준편차 없으면 Z 산출 불가',
+   yv({ category: '국어', subject: '문학', grade: 3, raw: 80, avg: 70, std: null }).reason,
+   'Z점수 산출 불가 (원점수 · 평균 · 표준편차 필요)');
+eq('성취도만 있는 반영교과 공통과목(과학탐구실험)은 제외 + 경고',
+   yv({ category: '과학', subject: '과학탐구실험', credit: 1, ach: 'A', raw: 90, avg: 97.6, std: 5 }).reason,
+   '석차등급 없음 (등급점수·Z점수 산출 불가)');
+
+section('23-c. 진로선택 · 전문교과');
+y = yv({ category: '수학', subject: '기하', ach: 'A', raw: 92 });
+eq('진로선택 기하 성취도 A · 원점수 92 → A(20)', y.use, 20);
+eq('  진로선택 그룹', y.ysGroup, 'career');
+y = yv({ category: '과학', subject: '고급 물리학', ach: 'A', grade: 7, raw: 69 });
+eq('전문교과는 진로선택으로 분류', y.ysGroup, 'career');
+eq('  7등급·69점 → 원점수 기준 B(15)', y.use, 15);
+y = yv({ category: '영어', subject: '심화 영어', ach: 'B', grade: 3, raw: 77 });
+eq('3등급·77점 → 등급 기준 A(20)', y.use, 20);
+
+section('23-d. 반영과목 B 감점');
+y = yv({ category: '체육', subject: '체육', credit: 2, ach: 'C' });
+eq('체예는 반영과목 B', y.ysGroup, 'B');
+eq('  성취도 C라 감점 대상 표시', y.basis, '반영과목 B · 성취도 C 감점');
+eq('등급·성취도 미표기 과목은 아예 반영 안 함',
+   yv({ category: '교양', subject: '논술', credit: 2, ach: 'P' }).reason, '이수(P) 과목');
+
+section('23-e. 종합 시나리오 (손계산 대조)');
+/*  반영과목 A
+    [공통 30%]  국어 4학점 3등급 (원 80 / 평 65 σ 12 → Z 1.25 → 0.1 조회 1.3 → 0.0968,
+                                3등급 상한 0.23 미만이라 그대로 → Z환산 90.32)
+                  등급점수 87.5 → 과목점수 (87.5 + 90.32) / 2 = 88.91
+    [일반 50%]  문학 4학점 2등급 (원 88 / 평 70 σ 12 → Z 1.5 → 0.0668,
+                                2등급 상한 0.11 미만 → Z환산 93.32)
+                  등급점수 95 → 과목점수 (95 + 93.32) / 2 = 94.16
+    [진로 20%]  기하 3학점 성취도 A 원점수 85 → A(20)
+    A점수 = 88.91×0.3 + 94.16×0.5 + 20 = 26.673 + 47.08 + 20 = 93.753
+    반영과목 B — 체육 2학점 성취도 C(감점 대상), 정보 3학점 4등급(정상)
+      감점 = 2 / 5 × 5 = 2
+    최종 = 93.753 − 2 = 91.753                                                  */
+const Y_STU = [
+  rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 3,
+        raw: 80, avg: 65, std: 12 }),
+  rec({ year: 2, sem: 1, category: '국어', subject: '문학', credit: 4, grade: 2,
+        raw: 88, avg: 70, std: 12 }),
+  rec({ year: 3, sem: 1, category: '수학', subject: '기하', credit: 3, ach: 'A', raw: 85 }),
+  rec({ year: 1, sem: 1, category: '체육', subject: '체육', credit: 2, ach: 'C' }),
+  rec({ year: 1, sem: 2, category: '기술・가정/제2외국어/한문/교양', subject: '정보',
+        credit: 3, grade: 4, raw: 75, avg: 70, std: 10 })
+];
+const yu = U.computeUniv(Y_STU, YS, OPT);
+const yg = {}; yu.groups.forEach(g => yg[g.label.replace(/ .*/, '')] = g);
+near('공통 국어 Z = 1.25', yu.included.find(x => x.subject === '국어').ysZ, 1.25);
+eq('  0.1 조회 → 0.0968', yu.included.find(x => x.subject === '국어').ysPct, 0.0968);
+near('  Z환산 90.32', yu.included.find(x => x.subject === '국어').ysZScore, 90.32);
+near('  과목점수 88.91', yu.included.find(x => x.subject === '국어').use, (87.5 + 90.32) / 2);
+near('공통 영역 평균 88.91', yg['공통과목'].avg, (87.5 + 90.32) / 2);
+near('일반선택 영역 평균 94.16', yg['일반선택과목'].avg, (95 + 93.32) / 2);
+eq('진로선택 영역 평균 20', yg['진로선택과목'].avg, 20);
+near('반영과목 A 점수 93.753',
+     yu.scoreA, (87.5 + 90.32) / 2 * 0.3 + (95 + 93.32) / 2 * 0.5 + 20);
+eq('반영과목 B 이수단위 합 5 (체육 2 + 정보 3)', yu.bCredits, 5);
+eq('  감점 대상 이수단위 2 (성취도 C 체육)', yu.bBadCredits, 2);
+eq('  감점 = 2/5 × 5 = 2', yu.penalty, 2);
+near('최종 교과점수 = 93.753 − 2 = 91.753', yu.score, 91.753);
+eq('비교평가 대상 아님', yu.compare, false);
+
+section('23-f. 세 영역 중 하나라도 없으면 비교평가 대상');
+const ysNoCareer = Y_STU.filter(r => r.subject !== '기하');
+const yuN = U.computeUniv(ysNoCareer, YS, OPT);
+eq('진로선택이 없으면 비교평가', yuN.compare, true);
+eq('  점수 산출 불가', yuN.score, null);
+eq('  빠진 영역 표시', yuN.missingGroups.length, 1);
+eq('  빠진 영역 이름', yuN.missingGroups[0].label, '진로선택과목 (전문교과 포함)');
+eq('반영과목 B가 하나도 없으면 감점 0',
+   U.computeUniv(Y_STU.filter(r => !['체육', '정보'].includes(r.subject)), YS, OPT).penalty, 0);
+
 /* ═════════ 결과 ═════════ */
 console.log('\n' + '─'.repeat(60));
 if (failures.length) {

@@ -337,7 +337,19 @@ function studentHTML(r) {
                 ' · 후보 ' + r.univ.included.length + '과목'
               : '반영 ' + r.univ.credits + '학점 ' + r.univ.included.length + '과목');
   var form;
-  if (sp.mode === 'best') {
+  if (sp.mode === 'yonsei') {
+    if (r.univ.compare) {
+      form = '비교평가 대상 — ' +
+        (r.univ.missingGroups || []).map(function (g) { return g.label.replace(/ .*/, ''); })
+          .join(' · ') + ' 영역 산출 불가';
+    } else {
+      form = (r.univ.groups || []).map(function (g) {
+        return g.label.replace(/ .*/, '') + ' ' + n1(g.avg) +
+               (g.weight === 1 ? '' : '×' + Math.round(g.weight * 100) + '%');
+      }).join('  +  ') + '  =  ' + n1(r.univ.scoreA);
+      if (r.univ.penalty > 0) form += '   −  반영과목 B 감점 ' + n1(r.univ.penalty);
+    }
+  } else if (sp.mode === 'best') {
     form = (r.univ.alts || []).map(function (a) {
       return a.label.replace(/ ·.*/, '') + ' ' + nAlt(a.avg) + (a.chosen ? ' ← 채택' : '');
     }).join('   ');
@@ -385,7 +397,19 @@ function studentHTML(r) {
     h += items.length ? subjTable(items, true, sp)
        : '<div class="card" style="color:var(--faint)">' + empty + '</div>';
   }
-  if (sp.mode === 'best') {
+  if (sp.mode === 'yonsei') {
+    (r.univ.groups || []).forEach(function (g) {
+      sec(g.label, (g.weight === 1 ? '20점 척도' : '반영비율 ' + Math.round(g.weight * 100) + '%') +
+          ' · ' + g.items.length + '과목 · ' + g.credits + '학점' +
+          (g.avg !== null ? ' · 평균 ' + n1(g.avg) : ' · 산출 불가'),
+          g.items, '이 영역에 반영된 과목이 없습니다.');
+    });
+    if ((r.univ.bItems || []).length)
+      sec('반영과목 B (감점 산정)',
+          r.univ.bCredits + '학점 중 9등급 · 성취도 C가 ' + r.univ.bBadCredits + '학점 → 감점 ' +
+          n1(r.univ.penalty) + '점',
+          r.univ.bItems, '반영과목 B가 없습니다.');
+  } else if (sp.mode === 'best') {
     var altT2 = (r.univ.alts || []).filter(function (a) { return a.topN; })[0];
     sec('반영 과목', r.univ.included.length + '과목' +
         (altT2 ? ' · 유형2는 석차등급 우수 ' + altT2.items.length + '과목만 반영' : ''),
@@ -531,7 +555,29 @@ function factorBoxes(r, a, sp) {
         : '반영 학기 안에 공통과목 기록이 없습니다.');
   }
 
-  if (sp.mode === 'best') {
+  if (sp.mode === 'yonsei') {
+    (r.univ.groups || []).forEach(function (g) {
+      h += box(esc(g.label) + ' <span style="color:var(--faint)">' +
+          (g.weight === 1 ? '20점 척도' : Math.round(g.weight * 100) + '%') + '</span>',
+        g.avg === null ? '—' : n1(g.avg), g.avg === null ? 'down' : 'num',
+        g.avg === null
+          ? '<b class="down">이 영역에 반영 과목이 없어 산출할 수 없습니다.</b> ' +
+            '요강상 세 영역 중 하나라도 계산이 불가능하면 비교평가 대상입니다.'
+          : g.items.length + '과목 · ' + g.credits + '학점 · 이수단위 가중평균입니다. ' +
+            '최종 점수에 <b>' + n1(g.contrib) + '점</b>을 실었습니다.');
+    });
+    h += box('반영과목 B 감점',
+      r.univ.penalty > 0 ? '−' + n1(r.univ.penalty) + '점' : '없음',
+      r.univ.penalty > 0 ? 'down' : 'num',
+      r.univ.bCredits
+        ? '반영과목 A 밖 과목 ' + r.univ.bCredits + '학점 중 <b>9등급 또는 성취도 C</b>가 ' +
+          r.univ.bBadCredits + '학점입니다. ' + r.univ.bBadCredits + ' ÷ ' + r.univ.bCredits +
+          ' × 5 = ' + n1(r.univ.penalty) + '점 감점.' +
+          (r.univ.bBadItems.length
+            ? ' 대상: ' + r.univ.bBadItems.map(function (x) { return esc(x.subject); }).join(' · ')
+            : '')
+        : '반영과목 B에 등급·성취도가 표기된 과목이 없습니다.');
+  } else if (sp.mode === 'best') {
     (r.univ.alts || []).forEach(function (g) {
       h += box(esc(g.label) + (g.chosen ? ' <span class="pill ach">채택</span>' : ''),
         g.avg === null ? '—' : nAlt(g.avg), g.chosen ? 'up' : 'flat',
@@ -706,6 +752,7 @@ function renderRank() {
   h += '<div class="tblwrap"><table class="plain ranktbl"><thead><tr>' +
     '<th>학번</th><th>이름</th><th class="r">단순 평균등급</th><th class="r">석차</th>' +
     '<th class="r">' + esc(sp.short) + ' 교과점수</th>' +
+    (sp.mode === 'yonsei' ? '<th class="r">A점수</th><th class="r">B감점</th>' : '') +
     (sp.mode === 'best' ? '<th>채택 유형</th>' : '') +
     (sp.bonusPerCredit ? '<th class="r">가산점</th>' : '') +
     (showEquiv ? '<th class="r">환산등급 상당</th>' : '') +
@@ -719,6 +766,12 @@ function renderRank() {
       '<td class="r num">' + f2(r.plain.gpa) + '</td>' +
       '<td class="r num">' + (r.plainRank ? r.plainRank.rank : '—') + '</td>' +
       '<td class="r num">' + fscore(r.univ.score) + '</td>' +
+      (sp.mode === 'yonsei'
+        ? '<td class="r num">' + (r.univ.compare
+            ? '<span class="pill off">비교평가</span>' : n1(r.univ.scoreA)) + '</td>' +
+          '<td class="r num" style="color:' + (r.univ.penalty > 0 ? 'var(--down)' : 'var(--faint)') + '">' +
+            (r.univ.penalty > 0 ? '−' + n1(r.univ.penalty) : '—') + '</td>'
+        : '') +
       (sp.mode === 'best'
         ? '<td style="font-size:.8rem">' + (r.univ.best
             ? '<span class="pill ach">' + esc(r.univ.best.label.replace(/ ·.*/, '')) + '</span> ' +
