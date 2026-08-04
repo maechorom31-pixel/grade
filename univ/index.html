@@ -1529,6 +1529,126 @@ td.dv{font-weight:700}
             head: ['석차등급', '배점'], rows: rows2 }
         ];
       }
+    },
+
+    /* ────────── 연세대학교 서울캠퍼스 · 학생부교과전형[추천형] 정량평가 ────────── */
+    yonsei: {
+      id: 'yonsei', name: '연세대학교', short: '연세대',
+      types: '학생부교과전형[추천형] 정량평가',
+      target: '전 과목 반영 (반영과목 A · B로 구분)',
+      formula: '반영과목 A(공통 30% + 일반선택 50% + 진로선택 20%) − 반영과목 B 감점(최대 5점)',
+      ratioNote: '학년별 비율 미적용 · 전 과목 반영',
+      rawNote: '공통·일반선택은 등급점수 50% + Z점수 환산점수 50%, 진로선택(전문교과 포함)은 A 20 · B 15 · C 10',
+      mode: 'yonsei',
+      scaleMax: 100,
+      trunc: null,
+      round: 4,
+      excludeCommon: false,
+      /* 반영과목 A 교과. 나머지는 전부 반영과목 B로 가고 감점 산정에만 쓰인다 */
+      areas: ['국어', '수학', '영어', '사회', '과학', '체예', '기타'],
+      areasA: ['국어', '수학', '영어', '사회', '과학'],
+      areaNote: '반영과목 A — 국어 · 수학 · 영어 · 사회(한국사 · 역사 · 도덕 포함) · 과학 / 반영과목 B — 그 외 전 과목(감점)',
+      groupWeight: { common: 0.3, general: 0.5, career: 1.0 },
+      /* 진로선택 A20/B15/C10은 이미 100점 중 20점 척도라 가중치 1.0 */
+      gradeConv: [100, 95, 87.5, 75, 60, 40, 25, 12.5, 5],
+      penaltyMax: 5,
+      equivScale: null,
+
+      detail: [
+        { h: '등급점수', get: function (it) { return it.ysGradeScore; } },
+        { h: 'Z점수', get: function (it) {
+            return it.ysZ === null || it.ysZ === undefined ? null : it.ysZ.toFixed(3); } },
+        { h: '석차백분율', get: function (it) {
+            return it.ysPct === null || it.ysPct === undefined ? null
+                 : it.ysPct.toFixed(4) + (it.ysCapped ? ' (상한)' : ''); } },
+        { h: 'Z환산', get: function (it) {
+            return it.ysZScore === null || it.ysZScore === undefined ? null
+                 : Math.round(it.ysZScore * 100) / 100; } }
+      ],
+
+      convert: function (it, spec) {
+        var cur = lookupSubject(it.subject);
+        var inA = spec.areasA.indexOf(it.area) >= 0;
+
+        /* 반영과목 B — 점수 산출이 아니라 감점 판정에만 쓴다.
+           등급·성취도로 표기되지 않은 과목(이수/미이수 등)은 아예 반영하지 않는다. */
+        if (!inA) {
+          var hasG = it.grade >= 1 && it.grade <= 9;
+          var hasA = /^[A-E]$/.test(it.ach || '');
+          if (!hasG && !hasA) { it.reason = '등급·성취도 미표기 (반영하지 않음)'; return; }
+          it.ysGroup = 'B';
+          it.use = 0;
+          it.basis = '반영과목 B' +
+            (it.grade === 9 ? ' · 9등급 감점' : (it.ach === 'C' && !hasG) ? ' · 성취도 C 감점' : '');
+          return;
+        }
+
+        /* 전문교과(교육과정 표에 없는 과목)는 진로선택으로 분류한다 (요강 명시) */
+        var group = cur ? (cur.curr === 'common' ? 'common'
+                        : cur.curr === 'general' ? 'general' : 'career')
+                        : 'career';
+
+        if (group === 'career') {
+          var five = !cur;                       // 전문교과는 5단계 평가로 본다
+          var abc = yonseiCareerABC(it.rec, five);
+          if (!abc) { it.reason = '등급·원점수·성취도 없음'; return; }
+          it.ysGroup = 'career';
+          it.convGrade = abc.abc;
+          it.use = abc.point;
+          it.basis = abc.basis + ' → ' + abc.abc;
+          return;
+        }
+
+        /* 공통 · 일반선택 — 등급점수 50% + Z환산점수 50% */
+        if (!(it.grade >= 1 && it.grade <= 9)) {
+          it.reason = '석차등급 없음 (등급점수·Z점수 산출 불가)';
+          if (it.ach) it.warn = (it.warn ? it.warn + ' / ' : '') +
+            '성취도만 기재된 반영교과 과목입니다 — 요강에 처리 규정이 없어 뺐습니다';
+          return;
+        }
+        it.ysGradeScore = spec.gradeConv[it.grade - 1];
+        var z = zScore(it.rec);
+        if (z === null) {
+          it.reason = 'Z점수 산출 불가 (원점수 · 평균 · 표준편차 필요)';
+          return;
+        }
+        it.ysZ = Math.round(z * 1000) / 1000;
+        var pct = ysPercentile(z);
+        var cap = (it.grade >= 1 && it.grade <= GRADE_PCT_CAP.length)
+                ? GRADE_PCT_CAP[it.grade - 1] : null;
+        if (cap !== null && pct > cap) { it.ysPct = cap; it.ysCapped = true; it.ysPctRaw = pct; }
+        else { it.ysPct = pct; it.ysCapped = false; it.ysPctRaw = pct; }
+        it.ysZScore = 100 * (1 - it.ysPct);
+        it.ysGroup = group;
+        it.use = it.ysGradeScore * 0.5 + it.ysZScore * 0.5;
+        it.basis = it.grade + '등급 ' + it.ysGradeScore + ' × 50% + Z환산 ' +
+                   (Math.round(it.ysZScore * 100) / 100) + ' × 50%';
+      },
+
+      specTables: function (sp) {
+        var rows = [];
+        for (var g = 1; g <= 9; g++)
+          rows.push([{ v: g, grade: g }, { v: sp.gradeConv[g - 1], num: true },
+                     { v: g <= 8 ? GRADE_PCT_CAP[g - 1] : '—' }]);
+        return [
+          { title: '반영과목 A 배점',
+            head: ['구분', '반영 교과', '배점'],
+            rows: [
+              [{ v: '공통과목' }, { v: '국 · 수 · 영 · 사 · 과' }, { v: '30%' }],
+              [{ v: '일반선택과목' }, { v: '국 · 수 · 영 · 사 · 과' }, { v: '50%' }],
+              [{ v: '진로선택과목 (전문교과 포함)' }, { v: '국 · 수 · 영 · 사 · 과' }, { v: '20%' }],
+              [{ v: '반영과목 B', strong: true }, { v: 'A를 제외한 기타 과목' }, { v: '최대 5점 감점' }]
+            ] },
+          { title: '등급점수 · 석차백분율 상한',
+            head: ['교과등급', '등급점수', '석차백분율 상한'], rows: rows },
+          { title: '진로선택(전문교과 포함) A/B/C — 두 기준 중 높은 점수',
+            head: ['구분', 'A (20점)', 'B (15점)', 'C (10점)'],
+            rows: [
+              [{ v: '등급 기준' }, { v: '1~3등급' }, { v: '4~6등급' }, { v: '7~9등급' }],
+              [{ v: '원점수 기준' }, { v: '80점 이상' }, { v: '60 이상 80 미만' }, { v: '60점 미만' }]
+            ] }
+        ];
+      }
     }
   };
 
@@ -1622,6 +1742,108 @@ td.dv{font-weight:700}
     return it;
   }
 
+  /* ═══════════════ Z점수 계열 유틸 (연세대) ═══════════════
+     생기부의 원점수 / 과목평균(표준편차)에서 Z점수를 내고,
+     표준정규분포로 석차백분율(상위 누적비율)을 구한 뒤 환산점수로 바꾼다.
+       Z            = (원점수 − 과목평균) ÷ 표준편차
+       석차백분율   = 1 − Φ(Z)
+       환산점수     = 100 × (1 − 석차백분율)
+     단, Z로 산출한 석차백분율이 그 과목 석차등급의 백분율 상한을 넘으면 상한값을 쓴다. */
+
+  /* 오차함수 (Abramowitz–Stegun 7.1.26, 오차 ~1.5e-7) */
+  function erf(x) {
+    var sign = x < 0 ? -1 : 1;
+    x = Math.abs(x);
+    var a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741,
+        a4 = -1.453152027, a5 = 1.061405429, pp = 0.3275911;
+    var t = 1 / (1 + pp * x);
+    var y = 1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+    return sign * y;
+  }
+  function normCdf(z) { return 0.5 * (1 + erf(z / Math.SQRT2)); }
+  /* 석차백분율 = 나보다 위에 있는 비율 */
+  function zToPercentile(z) {
+    if (z === null || z === undefined || !isFinite(z)) return null;
+    return 1 - normCdf(z);
+  }
+  function zScore(rec) {
+    if (rec.raw === null || rec.avg === null || rec.std === null) return null;
+    if (!(rec.std > 0)) return null;
+    return (rec.raw - rec.avg) / rec.std;
+  }
+  /* 9등급제 누적비율 — 요강의 「교과등급별 석차백분율」 표와 같다 (9등급은 상한 없음) */
+  var GRADE_PCT_CAP = [0.04, 0.11, 0.23, 0.40, 0.60, 0.77, 0.89, 0.96];
+  /* Z로 낸 석차백분율에 등급 상한을 씌운다 → {pct, capped} */
+  function cappedPercentile(z, grade) {
+    var pct = zToPercentile(z);
+    if (pct === null) return { pct: null, capped: false, raw: null };
+    var cap = (grade >= 1 && grade <= GRADE_PCT_CAP.length) ? GRADE_PCT_CAP[grade - 1] : null;
+    if (cap !== null && pct > cap) return { pct: cap, capped: true, raw: pct };
+    return { pct: pct, capped: false, raw: pct };
+  }
+  function pctToScore(pct) { return pct === null ? null : 100 * (1 - pct); }
+
+  /* 진로선택(전문교과 포함) A/B/C 판정 — 등급 기준과 원점수 기준 중 높은 점수를 쓴다.
+       등급 기준   1~3등급 A · 4~6등급 B · 7~9등급 C
+       원점수 기준 80점 이상 A · 60점 이상 80점 미만 B · 60점 미만 C
+       점수        A 20 · B 15 · C 10
+     성취도만 있는 과목은 3단계 A/B/C를 그대로, 5단계는 A·B→A, C·D→B, E→C로 접는다. */
+  var YS_ABC_POINT = { A: 20, B: 15, C: 10 };
+  function abcByGrade(g) {
+    if (!(g >= 1 && g <= 9)) return null;
+    return g <= 3 ? 'A' : g <= 6 ? 'B' : 'C';
+  }
+  function abcByRaw(raw) {
+    if (raw === null || raw === undefined) return null;
+    return raw >= 80 ? 'A' : raw >= 60 ? 'B' : 'C';
+  }
+  function abcByAch(ach, fiveLevel) {
+    if (!/^[A-E]$/.test(ach || '')) return null;
+    if (!fiveLevel) return /^[ABC]$/.test(ach) ? ach : null;
+    return (ach === 'A' || ach === 'B') ? 'A' : (ach === 'C' || ach === 'D') ? 'B' : 'C';
+  }
+  /* → {abc, point, byGrade, byRaw, byAch, basis} 중 가장 높은 점수를 채택 */
+  function yonseiCareerABC(rec, fiveLevel) {
+    var cands = [];
+    var g = abcByGrade(rec.grade);
+    if (g) cands.push({ abc: g, basis: '등급 기준' });
+    var r = abcByRaw(rec.raw);
+    if (r) cands.push({ abc: r, basis: '원점수 기준' });
+    /* 등급이 표기되지 않은 과목은 성취도로 판정한다 */
+    if (!g) {
+      var a = abcByAch(rec.ach, fiveLevel);
+      if (a) cands.push({ abc: a, basis: fiveLevel ? '성취도(5단계)' : '성취도' });
+    }
+    if (!cands.length) return null;
+    var best = null;
+    cands.forEach(function (c) {
+      c.point = YS_ABC_POINT[c.abc];
+      if (!best || c.point > best.point) best = c;
+    });
+    return { abc: best.abc, point: best.point, basis: best.basis, candidates: cands };
+  }
+
+  /* 요강이 실은 Z점수 → 석차백분율 표 (0.1 단위, Z=3.0부터 -3.0까지 61칸).
+     표준정규 상위누적확률과 같은 값이지만, 요강이 표를 명시했으므로 표를 그대로 쓴다. */
+  var YS_Z_TABLE = [0.0013, 0.0019, 0.0026, 0.0035, 0.0047, 0.0062, 0.0082, 0.0107, 0.0139, 0.0179, 0.0228, 0.0287, 0.0359, 0.0446, 0.0548, 0.0668, 0.0808, 0.0968, 0.1151, 0.1357, 0.1587, 0.1841, 0.2119, 0.242, 0.2743, 0.3085, 0.3446, 0.3821, 0.4207, 0.4602, 0.5, 0.5398, 0.5793, 0.6179, 0.6554, 0.6915, 0.7257, 0.758, 0.7881, 0.8159, 0.8413, 0.8643, 0.8849, 0.9032, 0.9192, 0.9332, 0.9452, 0.9554, 0.9641, 0.9713, 0.9772, 0.9821, 0.9861, 0.9893, 0.9918, 0.9938, 0.9953, 0.9965, 0.9974, 0.9981, 0.9987];
+  /* Z점수 → 석차백분율. Z는 소수 셋째 자리 반올림, ±3.0 밖은 ±3.0으로 간주,
+     표 조회는 0.1 단위로 반올림한다(요강에 조회 방법 명시가 없어 최근접 값을 쓴다). */
+  /* 0.5는 절댓값 기준으로 올린다 (1.25 → 1.3, -1.25 → -1.3).
+     자바스크립트 Math.round는 -1.25를 -1.2로 올려 음수에서 비대칭이 된다. */
+  function roundHalfUp(v, scale) {
+    var sign = v < 0 ? -1 : 1;
+    return sign * Math.round(Math.abs(v) * scale) / scale;
+  }
+  function ysPercentile(z) {
+    if (z === null || z === undefined || !isFinite(z)) return null;
+    var zz = roundHalfUp(z, 1000);             // 요강: Z는 소수 셋째 자리 반올림
+    if (zz > 3) zz = 3;
+    if (zz < -3) zz = -3;
+    var z1 = roundHalfUp(zz, 10);              // 표가 0.1 단위라 최근접 칸으로
+    var idx = Math.round((3 - z1) * 10);
+    return YS_Z_TABLE[Math.max(0, Math.min(YS_Z_TABLE.length - 1, idx))];
+  }
+
   /* ═══════════════ 체육·예술 교과 성취도 평균 ═══════════════
      교과 점수에는 안 들어가지만 동점자 처리에 쓰이는 보조 지표다.
      (가천대 동점자 처리 1단계 — 성취도 배점 A 3점 · B 2점 · C 1점)
@@ -1659,7 +1881,57 @@ td.dv{font-weight:700}
       artsPe: computeArtsPe(items)
     };
 
-    if (spec.mode === 'best') {
+    if (spec.mode === 'yonsei') {
+      /* 반영과목 A — 공통 30% + 일반선택 50% + 진로선택 20%(A20/B15/C10 척도 그대로).
+         공통·일반선택 과목점수 = 등급점수 50% + Z환산점수 50%.
+         반영과목 B — A를 뺀 기타 과목. 9등급 또는 성취도 C인 이수단위 비율 × 5를 감점. */
+      function pool(key) {
+        return inc.filter(function (it) { return it.ysGroup === key; });
+      }
+      function wavg(list) {
+        var n = 0, d = 0;
+        list.forEach(function (it) { n += it.credit * it.use; d += it.credit; });
+        return { items: list, credits: d, weighted: n, avg: d > 0 ? n / d : null };
+      }
+      var gCommon = wavg(pool('common'));
+      var gGeneral = wavg(pool('general'));
+      var gCareer = wavg(pool('career'));
+      gCommon.label = '공통과목'; gCommon.weight = spec.groupWeight.common;
+      gGeneral.label = '일반선택과목'; gGeneral.weight = spec.groupWeight.general;
+      gCareer.label = '진로선택과목 (전문교과 포함)'; gCareer.weight = spec.groupWeight.career;
+      var groups = [gCommon, gGeneral, gCareer];
+      groups.forEach(function (g) {
+        g.contrib = g.avg === null ? null : g.avg * g.weight;
+      });
+
+      /* 세 영역 중 하나라도 산출 불가면 요강상 비교평가 대상이다 */
+      var missing = groups.filter(function (g) { return g.avg === null; });
+      var scoreA = missing.length ? null
+                 : groups.reduce(function (t, g) { return t + g.contrib; }, 0);
+
+      /* 반영과목 B 감점 — 등급·성취도로 표기되지 않은 과목은 분모에서도 뺀다 */
+      var bAll = items.filter(function (it) { return it.ysGroup === 'B'; });
+      var bCr = 0, bBadCr = 0, bBad = [];
+      bAll.forEach(function (it) {
+        bCr += it.credit;
+        if (it.grade === 9 || (it.ach === 'C' && !(it.grade >= 1 && it.grade <= 9))) {
+          bBadCr += it.credit; bBad.push(it);
+        }
+      });
+      var penalty = bCr > 0 ? bBadCr / bCr * spec.penaltyMax : 0;
+
+      out.groups = groups;
+      out.missingGroups = missing;
+      out.compare = missing.length > 0;
+      out.scoreA = scoreA;
+      out.bItems = bAll; out.bCredits = bCr;
+      out.bBadItems = bBad; out.bBadCredits = bBadCr;
+      out.penalty = penalty;
+      out.credits = groups.reduce(function (t, g) { return t + g.credits; }, 0);
+      out.weighted = groups.reduce(function (t, g) { return t + g.weighted; }, 0);
+      out.score = scoreA === null ? null : scoreA - penalty;
+      if (spec.round && out.score !== null) out.score = roundTo(out.score, spec.round);
+    } else if (spec.mode === 'best') {
       /* 여러 산출 유형을 각각 계산해 유리한(높은) 쪽을 채택한다.
          과목별 유형별 배점은 convert()가 it.altUse에 미리 담아 둔다. */
       var pool = inc.filter(function (it) { return it.kind !== 'career'; });
@@ -1999,7 +2271,13 @@ td.dv{font-weight:700}
     truncDiv: truncDiv, truncTo: truncTo, equivGrade: equivGrade,
     evalRecord: evalRecord, computeUniv: computeUniv, computePlain: computePlain,
     rankList: rankList, verdict: verdict, analyze: analyze, computeAll: computeAll,
-    computeArtsPe: computeArtsPe, ARTS_PE_POINT: ARTS_PE_POINT
+    computeArtsPe: computeArtsPe, ARTS_PE_POINT: ARTS_PE_POINT,
+    erf: erf, normCdf: normCdf, zScore: zScore, zToPercentile: zToPercentile,
+    GRADE_PCT_CAP: GRADE_PCT_CAP, cappedPercentile: cappedPercentile,
+    pctToScore: pctToScore, YS_ABC_POINT: YS_ABC_POINT,
+    abcByGrade: abcByGrade, abcByRaw: abcByRaw, abcByAch: abcByAch,
+    yonseiCareerABC: yonseiCareerABC,
+    YS_Z_TABLE: YS_Z_TABLE, ysPercentile: ysPercentile
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.UnivCore = api;
@@ -2346,7 +2624,19 @@ function studentHTML(r) {
                 ' · 후보 ' + r.univ.included.length + '과목'
               : '반영 ' + r.univ.credits + '학점 ' + r.univ.included.length + '과목');
   var form;
-  if (sp.mode === 'best') {
+  if (sp.mode === 'yonsei') {
+    if (r.univ.compare) {
+      form = '비교평가 대상 — ' +
+        (r.univ.missingGroups || []).map(function (g) { return g.label.replace(/ .*/, ''); })
+          .join(' · ') + ' 영역 산출 불가';
+    } else {
+      form = (r.univ.groups || []).map(function (g) {
+        return g.label.replace(/ .*/, '') + ' ' + n1(g.avg) +
+               (g.weight === 1 ? '' : '×' + Math.round(g.weight * 100) + '%');
+      }).join('  +  ') + '  =  ' + n1(r.univ.scoreA);
+      if (r.univ.penalty > 0) form += '   −  반영과목 B 감점 ' + n1(r.univ.penalty);
+    }
+  } else if (sp.mode === 'best') {
     form = (r.univ.alts || []).map(function (a) {
       return a.label.replace(/ ·.*/, '') + ' ' + nAlt(a.avg) + (a.chosen ? ' ← 채택' : '');
     }).join('   ');
@@ -2394,7 +2684,19 @@ function studentHTML(r) {
     h += items.length ? subjTable(items, true, sp)
        : '<div class="card" style="color:var(--faint)">' + empty + '</div>';
   }
-  if (sp.mode === 'best') {
+  if (sp.mode === 'yonsei') {
+    (r.univ.groups || []).forEach(function (g) {
+      sec(g.label, (g.weight === 1 ? '20점 척도' : '반영비율 ' + Math.round(g.weight * 100) + '%') +
+          ' · ' + g.items.length + '과목 · ' + g.credits + '학점' +
+          (g.avg !== null ? ' · 평균 ' + n1(g.avg) : ' · 산출 불가'),
+          g.items, '이 영역에 반영된 과목이 없습니다.');
+    });
+    if ((r.univ.bItems || []).length)
+      sec('반영과목 B (감점 산정)',
+          r.univ.bCredits + '학점 중 9등급 · 성취도 C가 ' + r.univ.bBadCredits + '학점 → 감점 ' +
+          n1(r.univ.penalty) + '점',
+          r.univ.bItems, '반영과목 B가 없습니다.');
+  } else if (sp.mode === 'best') {
     var altT2 = (r.univ.alts || []).filter(function (a) { return a.topN; })[0];
     sec('반영 과목', r.univ.included.length + '과목' +
         (altT2 ? ' · 유형2는 석차등급 우수 ' + altT2.items.length + '과목만 반영' : ''),
@@ -2540,7 +2842,29 @@ function factorBoxes(r, a, sp) {
         : '반영 학기 안에 공통과목 기록이 없습니다.');
   }
 
-  if (sp.mode === 'best') {
+  if (sp.mode === 'yonsei') {
+    (r.univ.groups || []).forEach(function (g) {
+      h += box(esc(g.label) + ' <span style="color:var(--faint)">' +
+          (g.weight === 1 ? '20점 척도' : Math.round(g.weight * 100) + '%') + '</span>',
+        g.avg === null ? '—' : n1(g.avg), g.avg === null ? 'down' : 'num',
+        g.avg === null
+          ? '<b class="down">이 영역에 반영 과목이 없어 산출할 수 없습니다.</b> ' +
+            '요강상 세 영역 중 하나라도 계산이 불가능하면 비교평가 대상입니다.'
+          : g.items.length + '과목 · ' + g.credits + '학점 · 이수단위 가중평균입니다. ' +
+            '최종 점수에 <b>' + n1(g.contrib) + '점</b>을 실었습니다.');
+    });
+    h += box('반영과목 B 감점',
+      r.univ.penalty > 0 ? '−' + n1(r.univ.penalty) + '점' : '없음',
+      r.univ.penalty > 0 ? 'down' : 'num',
+      r.univ.bCredits
+        ? '반영과목 A 밖 과목 ' + r.univ.bCredits + '학점 중 <b>9등급 또는 성취도 C</b>가 ' +
+          r.univ.bBadCredits + '학점입니다. ' + r.univ.bBadCredits + ' ÷ ' + r.univ.bCredits +
+          ' × 5 = ' + n1(r.univ.penalty) + '점 감점.' +
+          (r.univ.bBadItems.length
+            ? ' 대상: ' + r.univ.bBadItems.map(function (x) { return esc(x.subject); }).join(' · ')
+            : '')
+        : '반영과목 B에 등급·성취도가 표기된 과목이 없습니다.');
+  } else if (sp.mode === 'best') {
     (r.univ.alts || []).forEach(function (g) {
       h += box(esc(g.label) + (g.chosen ? ' <span class="pill ach">채택</span>' : ''),
         g.avg === null ? '—' : nAlt(g.avg), g.chosen ? 'up' : 'flat',
@@ -2715,6 +3039,7 @@ function renderRank() {
   h += '<div class="tblwrap"><table class="plain ranktbl"><thead><tr>' +
     '<th>학번</th><th>이름</th><th class="r">단순 평균등급</th><th class="r">석차</th>' +
     '<th class="r">' + esc(sp.short) + ' 교과점수</th>' +
+    (sp.mode === 'yonsei' ? '<th class="r">A점수</th><th class="r">B감점</th>' : '') +
     (sp.mode === 'best' ? '<th>채택 유형</th>' : '') +
     (sp.bonusPerCredit ? '<th class="r">가산점</th>' : '') +
     (showEquiv ? '<th class="r">환산등급 상당</th>' : '') +
@@ -2728,6 +3053,12 @@ function renderRank() {
       '<td class="r num">' + f2(r.plain.gpa) + '</td>' +
       '<td class="r num">' + (r.plainRank ? r.plainRank.rank : '—') + '</td>' +
       '<td class="r num">' + fscore(r.univ.score) + '</td>' +
+      (sp.mode === 'yonsei'
+        ? '<td class="r num">' + (r.univ.compare
+            ? '<span class="pill off">비교평가</span>' : n1(r.univ.scoreA)) + '</td>' +
+          '<td class="r num" style="color:' + (r.univ.penalty > 0 ? 'var(--down)' : 'var(--faint)') + '">' +
+            (r.univ.penalty > 0 ? '−' + n1(r.univ.penalty) : '—') + '</td>'
+        : '') +
       (sp.mode === 'best'
         ? '<td style="font-size:.8rem">' + (r.univ.best
             ? '<span class="pill ach">' + esc(r.univ.best.label.replace(/ ·.*/, '')) + '</span> ' +
