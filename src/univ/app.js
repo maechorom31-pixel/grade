@@ -360,7 +360,9 @@ function studentHTML(r) {
             (r.univ.careerCompare
               ? ' (' + r.univ.careerCount + '과목 → 비교내신)'
               : ' (상위 ' + sp.careerTopN + '과목)');
-    form += '  · 출결 100점 별도';
+    if (r.univ.attendScore !== null && r.univ.attendScore !== undefined)
+      form += '  +  출결 ' + n1(r.univ.attendScore) + ' (결석 0일 가정)';
+    form += '   =  ' + n1(r.univ.score) + ' / ' + r.univ.scoreMax;
   } else if (sp.mode === 'weighted') {
     form = '공통·일반선택 ' + n1(r.univ.generalScore) + ' (' + sp.generalPct + '점 만점)';
     if (sp.careerPct > 0)
@@ -415,8 +417,10 @@ function studentHTML(r) {
         (altT2 ? ' · 유형2는 석차등급 우수 ' + altT2.items.length + '과목만 반영' : ''),
         r.univ.included, '반영된 과목이 없습니다.');
   } else if (sp.mode === 'base') {
+    var zN = (r.univ.generalItems || []).filter(function (x) { return x.zGrade; }).length;
     sec('석차등급산출과목', (r.univ.generalItems || []).length + '과목 · ' + r.univ.credits +
-        '학점 · 평균 ' + n1(r.univ.generalAvg) + '점',
+        '학점 · 평균 ' + n1(r.univ.generalAvg) + '점' +
+        (zN ? ' · 석차등급이 없는 ' + zN + '과목은 Z점수로 등급 산출 (소인수 학교 규정)' : ''),
         r.univ.generalItems || [], '반영된 과목이 없습니다.');
     var topSet = {};
     (r.univ.careerTop || []).forEach(function (x) { topSet[x.subject] = 1; });
@@ -607,6 +611,14 @@ function factorBoxes(r, a, sp) {
         : r.univ.careerCount + '과목 중 성취도가 높은 상위 ' + sp.careerTopN + '과목(' +
           r.univ.careerTop.map(function (x) { return x.ach; }).join(' · ') + ')만 반영했습니다. ' +
           '최대 ' + sp.careerMax + '점.');
+    if (r.univ.attendScore !== null && r.univ.attendScore !== undefined)
+      h += box('출결 <span style="color:var(--faint)">가정치</span>',
+        n1(r.univ.attendScore), '',
+        '생기부 교과학습발달상황에는 출결 자료가 없어 <b>결석 0일(만점 ' +
+        (sp.attend.base + sp.attend.real) + '점)</b>으로 뒀습니다. ' +
+        '실제 계산은 기본 ' + sp.attend.base + '점 + (1 − 미인정 결석일수 ÷ 21) × ' + sp.attend.real +
+        '점이고, 미인정 지각 · 조퇴 · 결과 3회를 결석 1일로 봅니다 (질병 · 기타는 제외). ' +
+        '전원 같은 값이라 <b>석차는 달라지지 않습니다</b>.');
   } else if (sp.mode === 'weighted') {
     (a.areaGroups || []).forEach(function (g) {
       h += box(esc(g.label) + ' <span style="color:var(--faint)">가중치 ' + g.weight + '</span>',
@@ -897,6 +909,7 @@ function renderSpec() {
       ? '<tr><th>공통과목</th><td><b>반영하지 않음</b> — ' + esc(sp.commonSubjects.join(', ')) + '</td></tr>' : '') +
     '<tr><th>점수산출지표</th><td>' + esc(sp.rawNote) + '</td></tr>' +
     (sp.trunc ? '<tr><th>절사</th><td>계산은 소수점 이하 ' + sp.trunc + '자리 미만에서 절사</td></tr>' : '') +
+    (sp.compareNote ? '<tr><th>비교내신</th><td>' + esc(sp.compareNote) + '</td></tr>' : '') +
     '</tbody></table>' +
     '<div class="formula" style="margin-top:16px">교과 점수 = ' + esc(sp.formula) + '</div></div>';
 

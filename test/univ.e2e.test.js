@@ -226,6 +226,55 @@ const EXEC = ['/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headle
   });
   await page.screenshot({ path: 'shot-univ-gachon.png', fullPage: true });
 
+  /* 전남대 — 전형별 배점 · 출결 · Z변환 */
+  const cnu = await page.evaluate(async () => {
+    document.querySelector('nav button[data-tab="data"]').click();
+    const sel = document.getElementById('optUniv');
+    sel.value = 'cnu'; sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 400));
+    const vs = document.getElementById('optVariant');
+    const keys = [...vs.options].map(o => o.value);
+    const out = {};
+    for (const k of keys) {
+      vs.value = k; vs.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 300));
+      document.querySelector('nav button[data-tab="student"]').click();
+      const q = document.getElementById('stuQuery');
+      q.value = '3101'; q.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 300));
+      const stuTxt = document.getElementById('stuBody').innerText;
+      document.querySelector('nav button[data-tab="spec"]').click();
+      await new Promise(r => setTimeout(r, 200));
+      out[k] = { stuTxt, specTxt: document.getElementById('specBody').innerText };
+    }
+    return { keys, out };
+  });
+  console.log('\n═══ 전남대로 전환 ═══');
+  console.log('전형 목록:', cnu.keys.join(', '));
+  console.log('--- 학생 조회 3101 (일괄선발) ---\n' + cnu.out['ilgwal'].stuTxt.slice(0, 1600));
+
+  checks.push(['전남대 전형 5종 제공', cnu.keys.length === 5]);
+  checks.push(['일괄선발 총점 1000 만점 표기', cnu.out['ilgwal'].stuTxt.includes('/ 1000')]);
+  checks.push(['단계선발 총점 800 만점 표기', cnu.out['dangye'].stuTxt.includes('/ 800')]);
+  checks.push(['실기·실적 총점 300 만점 표기', cnu.out['siljeok'].stuTxt.includes('/ 300')]);
+  checks.push(['출결 만점 가정 안내', cnu.out['ilgwal'].stuTxt.includes('결석 0일')]);
+  checks.push(['출결 산식 설명 (1 − 결석일수 ÷ 21)',
+    cnu.out['ilgwal'].stuTxt.includes('÷ 21')]);
+  checks.push(['전형별 배점 표 표시', cnu.out['ilgwal'].specTxt.includes('전형별 반영점수')]);
+  checks.push(['소인수 Z점수 변환표 표시',
+    cnu.out['ilgwal'].specTxt.includes('1.76 이상') && cnu.out['ilgwal'].specTxt.includes('-1.76 이하')]);
+  checks.push(['내신 5등급 체계 표 표시', cnu.out['ilgwal'].specTxt.includes('5등급 체계')]);
+  checks.push(['비교내신 대상 안내', cnu.out['ilgwal'].specTxt.includes('검정고시')]);
+  checks.push(['인문대학은 제2외국어 반영 안내',
+    cnu.out['ilgwal-inmun'].specTxt.includes('제2외국어')]);
+  checks.push(['예체능 실기는 수학·과학 미반영 안내',
+    cnu.out['yeche'].specTxt.includes('수학 · 과학 · 제2외국어 / 한문 미반영')]);
+  await page.evaluate(async () => {
+    document.querySelector('nav button[data-tab="student"]').click();
+    await new Promise(r => setTimeout(r, 250));
+  });
+  await page.screenshot({ path: 'shot-univ-cnu.png', fullPage: true });
+
   /* 외대로 되돌리기 */
   await page.evaluate(async () => {
     document.querySelector('nav button[data-tab="data"]').click();

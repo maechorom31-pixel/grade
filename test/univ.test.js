@@ -692,30 +692,30 @@ eq('외대·숭실대는 동점자 지표 미선언', [HUFS.tiebreakers, U.resol
 section('19. 전남대 학생부교과(일반) — 규격');
 const CNU = k => U.resolve('cnu', k);
 [[1, 100], [2, 95], [3, 90], [4, 85], [5, 80], [6, 75], [7, 70], [8, 65], [9, 0]]
-  .forEach(([g, v]) => eq(`${g}등급 → ${v}점`, CNU('all').gradeConv[g - 1], v));
-eq('진로선택 A → 15점', CNU('all').achPoint.A, 15);
-eq('진로선택 B → 9점', CNU('all').achPoint.B, 9);
-eq('진로선택 C → 3점', CNU('all').achPoint.C, 3);
-eq('기본점수 660 · 계수 2.25', [CNU('all').basePoints, CNU('all').coef].join('/'), '660/2.25');
-eq('전 모집단위 반영교과', CNU('all').areas.join(','), '국어,수학,영어,사회,과학');
-eq('예능·체육교육과는 수학·과학 미반영', CNU('arts').areas.join(','), '국어,영어,사회');
+  .forEach(([g, v]) => eq(`${g}등급 → ${v}점`, CNU('ilgwal').gradeConv[g - 1], v));
+eq('진로선택 A → 15점', CNU('ilgwal').achPoint.A, 15);
+eq('진로선택 B → 9점', CNU('ilgwal').achPoint.B, 9);
+eq('진로선택 C → 3점', CNU('ilgwal').achPoint.C, 3);
+eq('기본점수 660 · 계수 2.25', [CNU('ilgwal').basePoints, CNU('ilgwal').coef].join('/'), '660/2.25');
+eq('전 모집단위 반영교과', CNU('ilgwal').areas.join(','), '국어,수학,영어,사회,과학');
+eq('예능·체육교육과는 수학·과학 미반영', CNU('yeche').areas.join(','), '국어,영어,사회');
 const cv = (k, o) => U.evalRecord(rec(Object.assign({ credit: 3 }, o)), CNU(k), OPT);
 eq('제2외국어는 전 모집단위에서 미반영',
-   cv('all', { category: '제2외국어', subject: '일본어Ⅰ', grade: 3 }).reason, '반영교과 아님 (기타)');
+   cv('ilgwal', { category: '제2외국어', subject: '일본어Ⅰ', grade: 3 }).reason, '반영교과 아님 (기타)');
 eq('인문대학은 제2외국어 반영',
-   cv('inmun', { category: '제2외국어', subject: '일본어Ⅰ', grade: 3 }).included, true);
+   cv('ilgwal-inmun', { category: '제2외국어', subject: '일본어Ⅰ', grade: 3 }).included, true);
 eq('한문도 인문대학만 반영',
-   cv('inmun', { category: '한문', subject: '한문Ⅰ', grade: 2 }).included, true);
+   cv('ilgwal-inmun', { category: '한문', subject: '한문Ⅰ', grade: 2 }).included, true);
 eq('교과 열이 묶여 나와도 교육과정 표로 제2외국어를 가려낸다',
-   cv('inmun', { category: '기술・가정/제2외국어/한문/교양', subject: '일본어Ⅰ', grade: 3 }).included, true);
+   cv('ilgwal-inmun', { category: '기술・가정/제2외국어/한문/교양', subject: '일본어Ⅰ', grade: 3 }).included, true);
 eq('  같은 묶음의 교양 과목은 여전히 미반영',
-   cv('inmun', { category: '기술・가정/제2외국어/한문/교양', subject: '환경', ach: 'P' }).reason, '이수(P) 과목');
+   cv('ilgwal-inmun', { category: '기술・가정/제2외국어/한문/교양', subject: '환경', ach: 'P' }).reason, '이수(P) 과목');
 eq('  같은 묶음의 정보(기술·가정)도 미반영',
-   cv('inmun', { category: '기술・가정/제2외국어/한문/교양', subject: '정보', grade: 4 }).reason,
+   cv('ilgwal-inmun', { category: '기술・가정/제2외국어/한문/교양', subject: '정보', grade: 4 }).reason,
    '반영교과 아님 (기타)');
 eq('진로선택에 석차등급이 기재되면 석차등급산출과목으로',
-   cv('all', { category: '수학', subject: '기하', grade: 2, ach: 'A' }).kind, 'general');
-eq('  그 경우 등급점수 95 적용', cv('all', { category: '수학', subject: '기하', grade: 2, ach: 'A' }).use, 95);
+   cv('ilgwal', { category: '수학', subject: '기하', grade: 2, ach: 'A' }).kind, 'general');
+eq('  그 경우 등급점수 95 적용', cv('ilgwal', { category: '수학', subject: '기하', grade: 2, ach: 'A' }).use, 95);
 
 section('19-b. 전남대 종합 시나리오 (손계산 대조)');
 /*  석차등급산출과목 — 이수단위 가중평균
@@ -725,7 +725,7 @@ section('19-b. 전남대 종합 시나리오 (손계산 대조)');
       실질점수 = 90.8333… × 2.25 = 204.375 → 기본 660 + 204.375 = 864.375
     진로선택 (상위 3과목) — 기하 A(15) · 심화 국어 B(9) · 여행지리 A(15) · 생활과 과학 C(3)
       상위 3 = 15 + 15 + 9 = 39 → 39/3 = 13
-    최종 = 864.375 + 13 = 877.375                                            */
+    최종 = 864.375 + 13 + 출결 100(결석 0일 가정) = 977.375                  */
 const N_STU = [
   rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 2 }),
   rec({ year: 1, sem: 1, category: '수학', subject: '수학', credit: 4, grade: 3 }),
@@ -738,7 +738,7 @@ const N_STU = [
   rec({ year: 3, sem: 1, category: '사회(역사/도덕포함)', subject: '여행지리', credit: 2, ach: 'A' }),
   rec({ year: 3, sem: 1, category: '과학', subject: '생활과 과학', credit: 2, ach: 'C' })
 ];
-const nu = U.computeUniv(N_STU, CNU('all'), OPT);
+const nu = U.computeUniv(N_STU, CNU('ilgwal'), OPT);
 eq('석차등급산출과목 학점 18 (일본어 제외)', nu.credits, 18);
 near('  이수단위 가중평균 = 1635/18', nu.generalAvg, 1635 / 18);
 near('  실질점수 = 204.375', nu.generalReal, 204.375);
@@ -748,34 +748,35 @@ eq('  상위 3과목만 반영 (A15 A15 B9)',
    nu.careerTop.map(x => x.use).join(','), '15,15,9');
 eq('  진로선택 점수 = 39/3 = 13', nu.careerScore, 13);
 eq('  비교내신 아님', nu.careerCompare, false);
-near('최종 교과 점수 = 877.375', nu.score, 877.375);
-eq('총점 만점 900 (출결 100점 별도)', nu.scoreMax, 900);
+eq('출결은 결석 0일 만점 가정 100', nu.attendScore, 100);
+near('최종 교과 점수 = 864.375 + 13 + 100', nu.score, 977.375);
+eq('총점 만점 1000 (660+225+15+100)', nu.scoreMax, 1000);
 near('환산등급 상당은 석차등급산출과목 평균 기준', nu.equiv,
      2 + (95 - 1635 / 18) / (95 - 90));
 
-const nuI = U.computeUniv(N_STU, CNU('inmun'), OPT);
+const nuI = U.computeUniv(N_STU, CNU('ilgwal-inmun'), OPT);
 eq('인문대학은 일본어Ⅰ이 들어와 학점 21', nuI.credits, 21);
 near('  가중평균 = (1635 + 210)/21', nuI.generalAvg, 1845 / 21);
 
 section('19-c. 진로선택 3과목 미만 → 비교내신');
 /* 요강 예시: 석차등급산출과목 실질점수 222.521 → 222.521 × 0.06666 = 14.83 */
 near('요강 예시 그대로 — 222.521 × 0.06666 → 14.83',
-     Math.round(222.521 * CNU('all').compareCoef * 100) / 100, 14.83);
+     Math.round(222.521 * CNU('ilgwal').compareCoef * 100) / 100, 14.83);
 const twoCareer = N_STU.filter(r => !['여행지리', '생활과 과학'].includes(r.subject));
-const nu2 = U.computeUniv(twoCareer, CNU('all'), OPT);
+const nu2 = U.computeUniv(twoCareer, CNU('ilgwal'), OPT);
 eq('진로선택 2과목 → 비교내신 적용', nu2.careerCompare, true);
 near('  비교내신 점수 = 204.375 × 0.06666 (반올림)',
      nu2.careerScore, Math.round(204.375 * 0.06666 * 100) / 100);
 eq('  이수한 진로선택은 성적에 반영하지 않음 (상위 3과목 합산 안 씀)',
    nu2.careerScore !== 13, true);
 const noCareer = N_STU.filter(r => r.grade !== null);
-const nu0 = U.computeUniv(noCareer, CNU('all'), OPT);
+const nu0 = U.computeUniv(noCareer, CNU('ilgwal'), OPT);
 eq('진로선택 0과목도 비교내신', nu0.careerCompare, true);
 /* 최저점 3 — 실질점수가 아주 낮은 학생 */
 const weak = [rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 9 })];
-const nuW = U.computeUniv(weak, CNU('all'), OPT);
+const nuW = U.computeUniv(weak, CNU('ilgwal'), OPT);
 eq('실질점수 0이면 비교내신 최저점 3 부여', nuW.careerScore, 3);
-near('  총점 = 660 + 0 + 3', nuW.score, 663);
+near('  총점 = 660 + 0 + 3 + 출결 100', nuW.score, 763);
 
 section('19-d. 전형요소 배점 정합성');
 const perfect = [
@@ -784,10 +785,72 @@ const perfect = [
   rec({ year: 3, sem: 1, category: '국어', subject: '심화 국어', credit: 3, ach: 'A' }),
   rec({ year: 3, sem: 1, category: '영어', subject: '진로 영어', credit: 3, ach: 'A' })
 ];
-const nuP = U.computeUniv(perfect, CNU('all'), OPT);
+const nuP = U.computeUniv(perfect, CNU('ilgwal'), OPT);
 near('전 과목 1등급 + 진로선택 A → 실질점수 만점 225', nuP.generalReal, 225);
 eq('  진로선택 만점 15', nuP.careerScore, 15);
-near('  교과 점수 만점 900 (660+225+15)', nuP.score, 900);
+near('  교과 점수 만점 1000 (660+225+15+100)', nuP.score, 1000);
+
+section('19-e. 전형별 배점 — 일괄 · 단계 · 실기/실적');
+/* 요강 「전형요소별 반영점수」 — 전형마다 기본점수 · 계수 · 진로선택 · 출결이 통째로 갈린다 */
+[['ilgwal',       660,   2.25, 225, 15,  100, 1000, 3],
+ ['ilgwal-inmun', 660,   2.25, 225, 15,  100, 1000, 3],
+ ['dangye',       528,   1.8,  180, 12,  80,  800,  2.4],
+ ['yeche',        528,   1.8,  180, 12,  80,  800,  2.4],
+ ['siljeok',      193.5, 0.72, 72,  4.5, 30,  300,  0.9]]
+  .forEach(([k, base, coef, real, career, att, total, cmin]) => {
+    const sp = CNU(k);
+    eq(`${k} 기본 ${base} · 계수 ${coef}`, [sp.basePoints, sp.coef].join('/'), `${base}/${coef}`);
+    eq(`  ${k} 실질 ${real} · 진로 ${career}`, [sp.realMax, sp.careerMax].join('/'), `${real}/${career}`);
+    eq(`  ${k} 출결 ${att}`, sp.attend.base + sp.attend.real, att);
+    eq(`  ${k} 비교내신 최저점 ${cmin}`, sp.compareMin, cmin);
+    /* 기본 + 실질 + 진로 + 출결 = 요강 총점 */
+    near(`  ${k} 총점 ${total}`, sp.basePoints + sp.realMax + sp.careerMax + att, total);
+  });
+/* 실제 산출로도 만점이 나오는지 — 전 과목 1등급 + 진로선택 A */
+[['ilgwal', 1000], ['dangye', 800], ['siljeok', 300]].forEach(([k, total]) => {
+  near(`${k} 만점 산출 = ${total}`, U.computeUniv(perfect, CNU(k), OPT).score, total);
+  eq(`  ${k} scoreMax = ${total}`, U.computeUniv(perfect, CNU(k), OPT).scoreMax, total);
+});
+eq('예능 계열 · 실기/실적은 수학 · 과학 미반영',
+   [CNU('yeche').areas.join(','), CNU('siljeok').areas.join(',')].join(' | '),
+   '국어,영어,사회 | 국어,영어,사회');
+eq('단계선발(특수교육대상자)은 전 모집단위와 같은 반영교과',
+   CNU('dangye').areas.join(','), '국어,수학,영어,사회,과학');
+
+section('19-f. 소인수 학교 Z점수 → 석차등급');
+/* 요강 구간표 경계값 — 위쪽 칸의 하한과 아래쪽 칸의 상한을 모두 친다 */
+[[3.00, 1], [1.76, 1], [1.75, 2], [1.23, 2], [1.22, 3], [0.74, 3],
+ [0.73, 4], [0.26, 4], [0.25, 5], [0.00, 5], [-0.25, 5], [-0.26, 6],
+ [-0.73, 6], [-0.74, 7], [-1.22, 7], [-1.23, 8], [-1.75, 8], [-1.76, 9], [-3.00, 9]]
+  .forEach(([z, g]) => eq(`Z ${z} → ${g}등급`, U.cnuZGrade(z), g));
+eq('Z가 없으면 등급도 없음', U.cnuZGrade(null), null);
+/* 석차등급 칸이 비어도 원점수 · 평균 · 표준편차가 있으면 Z로 등급을 만든다 */
+const zRec = rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4,
+                   raw: 88, avg: 70, std: 12 });          // Z = 1.5 → 2등급
+const zIt = U.evalRecord(zRec, CNU('ilgwal'), OPT);
+eq('석차등급이 없어도 Z로 반영', zIt.included, true);
+eq('  Z 1.5 → 2등급', zIt.zGrade, 2);
+eq('  등급점수 95', zIt.use, 95);
+eq('  산출 근거 표시', zIt.basis, 'Z 1.5 → 2등급');
+/* 표준편차가 없으면 Z를 못 내므로 종전대로 제외 */
+eq('표준편차가 없으면 Z를 못 내 여전히 제외',
+   U.evalRecord(rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, raw: 88 }),
+                CNU('ilgwal'), OPT).reason, '등급·성취도 없음');
+eq('  Z 변환은 전남대 규격에서만 — 외대는 종전대로 제외',
+   U.evalRecord(rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4,
+                      raw: 88, avg: 70, std: 12 }), HUFS, OPT).reason, '등급·성취도 없음');
+/* 석차등급이 있으면 Z는 쓰지 않는다 */
+const zBoth = U.evalRecord(rec({ year: 1, sem: 1, category: '국어', subject: '국어',
+                                 credit: 4, grade: 5, raw: 95, avg: 70, std: 12 }),
+                           CNU('ilgwal'), OPT);
+eq('석차등급이 있으면 Z 무시', [zBoth.use, zBoth.zGrade || '-'].join('/'), '80/-');
+
+section('19-g. 2022 개정 내신 5등급 체계 등급점수표');
+[[1, 100], [2, 90], [3, 80], [4, 70], [5, 0]]
+  .forEach(([g, v]) => eq(`5등급 체계 ${g}등급 → ${v}점`, CNU('ilgwal').gradeConv5[g - 1], v));
+eq('비교내신 대상 안내 문구 제공', /검정고시/.test(CNU('ilgwal').compareNote), true);
+eq('산출 기준 표 6종 (9등급 · 5등급 · 성취도 · 전형별 배점 · 비교내신 · Z변환)',
+   CNU('ilgwal').specTables(CNU('ilgwal')).length, 6);
 
 /* ═════════ 20. 명지대 — 이수학점 가산점 구조 ═════════ */
 section('20. 명지대 학생부교과(특성화고교전형 외) — 규격');

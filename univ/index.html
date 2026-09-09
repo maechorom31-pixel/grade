@@ -1269,48 +1269,87 @@ td.dv{font-weight:700}
       }
     },
 
-/* ────────── 전남대학교 · 학생부교과(일반) 일괄선발 ────────── */
+/* ────────── 전남대학교 · 학생부교과 · 예체능 실기 · 실기/실적 ────────── */
     cnu: {
       id: 'cnu', name: '전남대학교', short: '전남대',
-      types: '학생부교과(일반) 일괄선발',
+      types: '학생부교과 · 예체능 실기 · 실기/실적',
       target: '국내 고교 졸업(예정)자 (2027년 2월 졸업예정자 포함)',
-      formula: '석차등급산출과목(기본 660 + 실질 최대 225) + 진로선택과목(최대 15) · 출결 100점은 별도',
+      formula: '석차등급산출과목(기본점수 + 이수단위 가중평균 등급점수 × 계수) + 진로선택과목(성취도 상위 3과목) + 출결',
       ratioNote: '학년별 가중치 없음 · 1학년 1학기 ~ 3학년 1학기 (졸업자도 동일)',
-      rawNote: '석차등급은 1등급 100점부터 8등급 65점 · 9등급 0점, 진로선택 성취도는 A 15 · B 9 · C 3',
+      rawNote: '석차등급은 1등급 100점부터 8등급 65점 · 9등급 0점, 진로선택 성취도는 A 15 · B 9 · C 3 (배점 비율은 전형별로 축소)',
       mode: 'base',
-      scaleMax: 900,                 // 885(석차등급산출) + 15(진로선택). 출결 100점은 별도
       trunc: null,
       excludeCommon: false,
       careerAreaLimited: true,
-      /* 진로선택에 석차등급이 기재되면 석차등급산출과목으로 반영한다 (요강 명시) */
+      /* 진로선택에 석차등급이 기재되면 석차등급산출과목으로 반영한다 (요강 명시).
+         이때 그 진로선택 과목의 성적은 비교내신으로 처리된다 — 아래 careerCompareNote 참고 */
       careerWithGradeToGeneral: true,
       gradeConv: [100, 95, 90, 85, 80, 75, 70, 65, 0],
-      achPoint: { A: 15, B: 9, C: 3 },
-      basePoints: 660,
-      coef: 2.25,
-      realMax: 225,
+      /* 2022 개정 교육과정(내신 5등급 체계) 등급점수 — 표시용.
+         본 계산기는 생기부에 기재된 9등급 체계를 그대로 쓴다. */
+      gradeConv5: [100, 90, 80, 70, 0],
+      /* 진로선택 성취도 점수는 전형별 진로선택 총점에 비례한다 (A : B : C = 5 : 3 : 1).
+         C점수가 곧 비교내신 최저점이다 — 요강의 3 / 2.4 / 0.9와 일치한다. */
       careerTopN: 3,
-      careerMax: 15,
-      /* 진로선택 3과목 미만 → 석차등급산출과목 실질점수로 비교내신 (최저점 3) */
-      compareCoef: 0.06666,
-      compareMin: 3,
-      /* 환산등급 상당치는 석차등급산출과목 평균으로 낸다 (총점에는 기본점수가 섞여 있다) */
+      /* 석차등급이 산출되지 않는 소인수 학교 — Z점수로 석차등급을 매긴다 */
+      zToGrade: true,
+      /* 환산등급 상당치는 석차등급산출과목 평균으로 낸다 (총점에는 기본점수·출결이 섞여 있다) */
       equivScale: [100, 95, 90, 85, 80, 75, 70, 65, 0],
       equivFrom: function (out) { return out.generalAvg; },
+      compareNote: '비교내신은 진로선택 3과목 미만 외에도 2021년 2월 이전 졸업자, ' +
+        '검정고시 · 국외고 출신자, 국내 1~9등급 이외 성적체계 지원자에게 적용됩니다 — ' +
+        '생기부 교과 자료만으로는 판정할 수 없어 이 계산기는 「3과목 미만」만 자동 적용합니다.',
 
+      /* 전형별로 기본점수 · 계수 · 진로선택 총점 · 출결 배점이 통째로 다르다.
+         반영교과(계열)까지 같이 갈리므로 두 축을 묶어 한 벌로 제공한다. */
       variants: [
-        { key: 'all', label: '전 모집단위 (예체능 계열 · 인문대학 제외)',
+        { key: 'ilgwal', label: '학생부교과(일반) 일괄선발 · 전 모집단위',
           areas: ['국어', '수학', '영어', '사회', '과학'],
           areaNote: '국어 · 영어 · 수학 · 한국사 · 사회 · 과학',
-          includeForeignHanmun: false },
-        { key: 'inmun', label: '인문대학 모집단위',
+          includeForeignHanmun: false,
+          basePoints: 660, coef: 2.25, realMax: 225, careerMax: 15,
+          achPoint: { A: 15, B: 9, C: 3 },
+          compareCoef: 0.06666, compareMin: 3,
+          attend: { base: 90, real: 10, coef: 0.04444 },
+          scaleMax: 1000 },
+        { key: 'ilgwal-inmun', label: '학생부교과(일반) 일괄선발 · 인문대학',
           areas: ['국어', '수학', '영어', '사회', '과학'],
           areaNote: '국어 · 영어 · 수학 · 한국사 · 사회 · 과학 + 제2외국어 / 한문',
-          includeForeignHanmun: true },
-        { key: 'arts', label: '예능 계열 · 체육교육과',
+          includeForeignHanmun: true,
+          basePoints: 660, coef: 2.25, realMax: 225, careerMax: 15,
+          achPoint: { A: 15, B: 9, C: 3 },
+          compareCoef: 0.06666, compareMin: 3,
+          attend: { base: 90, real: 10, coef: 0.04444 },
+          scaleMax: 1000 },
+        { key: 'dangye', label: '단계선발 · 특수교육대상자 (전 모집단위)',
+          areas: ['국어', '수학', '영어', '사회', '과학'],
+          areaNote: '국어 · 영어 · 수학 · 한국사 · 사회 · 과학',
+          includeForeignHanmun: false,
+          basePoints: 528, coef: 1.8, realMax: 180, careerMax: 12,
+          achPoint: { A: 12, B: 7.2, C: 2.4 },
+          compareCoef: 0.06666, compareMin: 2.4,
+          attend: { base: 72, real: 8, coef: 0.04444 },
+          scaleMax: 800 },
+        { key: 'yeche', label: '단계선발 · 예체능 실기 (예능 계열 · 체육교육과)',
           areas: ['국어', '영어', '사회'],
           areaNote: '국어 · 영어 · 한국사 · 사회 (수학 · 과학 · 제2외국어 / 한문 미반영)',
-          includeForeignHanmun: false }
+          includeForeignHanmun: false,
+          basePoints: 528, coef: 1.8, realMax: 180, careerMax: 12,
+          achPoint: { A: 12, B: 7.2, C: 2.4 },
+          compareCoef: 0.06666, compareMin: 2.4,
+          attend: { base: 72, real: 8, coef: 0.04444 },
+          scaleMax: 800 },
+        { key: 'siljeok', label: '실기 · 실적 전형 (예능 계열 · 체육교육과)',
+          areas: ['국어', '영어', '사회'],
+          areaNote: '국어 · 영어 · 한국사 · 사회 (수학 · 과학 · 제2외국어 / 한문 미반영)',
+          includeForeignHanmun: false,
+          basePoints: 193.5, coef: 0.72, realMax: 72, careerMax: 4.5,
+          achPoint: { A: 4.5, B: 2.7, C: 0.9 },
+          /* 요강이 최저점 0.9만 밝힌 구간 — 계수는 다른 전형과 같은 규칙
+             (진로선택 총점 ÷ 실질점수 만점 = 4.5 ÷ 72)으로 두었다 */
+          compareCoef: 0.0625, compareMin: 0.9,
+          attend: { base: 27, real: 3, coef: 0.04166 },
+          scaleMax: 300 }
       ],
 
       /* 제2외국어/한문 교과군은 인문대학 모집단위만 반영 — 교육과정 표의 교과(군)로 가른다.
@@ -1336,9 +1375,20 @@ td.dv{font-weight:700}
           it.use = v; it.convGrade = it.ach;
           it.basis = '성취도 ' + it.ach;
         } else {
-          if (!(it.grade >= 1 && it.grade <= 9)) { it.reason = '석차등급 없음'; return; }
-          it.use = spec.gradeConv[it.grade - 1];
-          it.basis = it.grade + '등급';
+          var g = it.grade;
+          if (!(g >= 1 && g <= 9)) {
+            /* 소인수 학교 — 석차등급이 없으면 Z점수로 등급을 매긴다 */
+            var z = spec.zToGrade ? zScore(it.rec) : null;
+            g = z === null ? null : cnuZGrade(z);
+            if (!g) { it.reason = '석차등급 없음'; return; }
+            it.zScore = z;
+            it.zGrade = g;
+            it.basis = 'Z ' + roundHalfUp(z, 100) + ' → ' + g + '등급';
+          } else {
+            it.basis = g + '등급';
+          }
+          it.convGrade = g;
+          it.use = spec.gradeConv[g - 1];
         }
       },
 
@@ -1346,20 +1396,42 @@ td.dv{font-weight:700}
         var rows = [];
         for (var g = 1; g <= 9; g++)
           rows.push([{ v: g, grade: g }, { v: sp.gradeConv[g - 1], num: true }]);
+        var ZLABEL = ['1.76 이상', '1.23 ~ 1.75', '0.74 ~ 1.22', '0.26 ~ 0.73',
+                      '-0.25 ~ 0.25', '-0.73 ~ -0.26', '-1.22 ~ -0.74',
+                      '-1.75 ~ -1.23', '-1.76 이하'];
         return [
-          { title: '석차등급 등급점수', head: ['석차등급', '등급점수'], rows: rows },
-          { title: '진로선택 성취도별 등급점수 (상위 3과목만)',
-            head: ['성취도', '등급점수'],
+          { title: '석차등급 등급점수 (9등급 체계)', head: ['석차등급', '등급점수'], rows: rows },
+          { title: '석차등급 등급점수 (2022 개정 · 내신 5등급 체계 — 참고)',
+            head: ['석차등급', '등급점수'],
+            rows: sp.gradeConv5.map(function (v, i) {
+              return [{ v: i + 1, grade: i + 1 }, { v: v, num: true }]; }) },
+          { title: '진로선택 성취도별 등급점수 (성취도 상위 ' + sp.careerTopN + '과목만)',
+            head: ['성취도'].concat(sp.variants.map(function (v) { return v.label; })),
             rows: ['A', 'B', 'C'].map(function (k) {
-              return [{ v: k, strong: true }, { v: sp.achPoint[k], num: true }]; }) },
-          { title: '전형요소별 반영점수 — 학생부교과(일반) 일괄선발',
-            head: ['전형요소', '기본점수', '실질점수', '배점'],
-            rows: [
-              [{ v: '석차등급산출과목' }, { v: 660, num: true }, { v: 225, num: true }, { v: 885, num: true }],
-              [{ v: '진로선택과목' }, { v: 0, num: true }, { v: 15, num: true }, { v: 15, num: true }],
-              [{ v: '출결 (산출 제외)' }, { v: 90, num: true }, { v: 10, num: true }, { v: 100, num: true }],
-              [{ v: '합계', strong: true }, { v: 750, num: true }, { v: 250, num: true }, { v: 1000, num: true }]
-            ] }
+              return [{ v: k, strong: true }].concat(sp.variants.map(function (v) {
+                return { v: v.achPoint[k], num: true, strong: v.key === sp.variantKey };
+              })); }) },
+          { title: '전형별 반영점수 — 현재 선택: ' + sp.variant.label,
+            head: ['전형', '석차등급산출 기본', '석차등급산출 실질', '진로선택', '출결', '총점'],
+            rows: sp.variants.map(function (v) {
+              return [{ v: v.label, strong: v.key === sp.variantKey },
+                      { v: v.basePoints, num: true },
+                      { v: v.realMax, num: true },
+                      { v: v.careerMax, num: true },
+                      { v: v.attend.base + v.attend.real, num: true },
+                      { v: v.scaleMax, num: true }];
+            }) },
+          { title: '진로선택 비교내신 — 3과목 미만일 때',
+            head: ['전형', '석차등급산출 실질점수 × 계수', '최저점'],
+            rows: sp.variants.map(function (v) {
+              return [{ v: v.label, strong: v.key === sp.variantKey },
+                      { v: '× ' + v.compareCoef },
+                      { v: v.compareMin, num: true }];
+            }) },
+          { title: '소인수 학교 Z점수 → 석차등급 (석차등급 미산출 과목)',
+            head: ['Z점수', '석차등급'],
+            rows: ZLABEL.map(function (t, i) {
+              return [{ v: t }, { v: i + 1, grade: i + 1 }]; }) }
         ];
       }
     },
@@ -1721,6 +1793,10 @@ td.dv{font-weight:700}
 
     if (kind === 'skip') { it.reason = '수동 제외'; return it; }
     if (kind === 'pass') { it.reason = '이수(P) 과목'; return it; }
+    /* 소인수 학교(전남대) — 석차등급 칸이 비어도 원점수·과목평균·표준편차가 있으면
+       석차등급산출과목으로 보고 Z점수로 등급을 매긴다. 규격의 convert가 실제 변환을 한다. */
+    if (kind === 'none' && spec.zToGrade && !ko &&
+        (!cur || cur.expect === 'grade') && zScore(rec) !== null) { it.kind = kind = 'general'; }
     if (kind === 'none') { it.reason = '등급·성취도 없음'; return it; }
     if (spec.excludeCommon && it.common) { it.reason = '공통과목 미반영'; return it; }
 
@@ -1842,6 +1918,22 @@ td.dv{font-weight:700}
     var z1 = roundHalfUp(zz, 10);              // 표가 0.1 단위라 최근접 칸으로
     var idx = Math.round((3 - z1) * 10);
     return YS_Z_TABLE[Math.max(0, Math.min(YS_Z_TABLE.length - 1, idx))];
+  }
+
+  /* ═══════════════ Z점수 → 석차등급 (전남대 소인수 학교) ═══════════════
+     학년 인원이 적어 석차등급이 산출되지 않는 학교는 원점수·과목평균·표준편차로
+     Z점수를 내고 아래 구간표로 석차등급을 매긴다 (요강 명시).
+     [하한 Z, 등급] — 위에서부터 처음 만족하는 칸, 어디에도 안 걸리면 9등급. */
+  var CNU_Z_GRADE = [
+    [1.76, 1], [1.23, 2], [0.74, 3], [0.26, 4],
+    [-0.25, 5], [-0.73, 6], [-1.22, 7], [-1.75, 8]
+  ];
+  function cnuZGrade(z) {
+    if (z === null || z === undefined || !isFinite(z)) return null;
+    var zz = roundHalfUp(z, 100);            // 구간 경계가 소수 둘째 자리
+    for (var i = 0; i < CNU_Z_GRADE.length; i++)
+      if (zz >= CNU_Z_GRADE[i][0]) return CNU_Z_GRADE[i][1];
+    return 9;
   }
 
   /* ═══════════════ 체육·예술 교과 성취도 평균 ═══════════════
@@ -1995,13 +2087,20 @@ td.dv{font-weight:700}
                : Math.max(round2(gReal * spec.compareCoef), spec.compareMin);
       }
 
+      /* 출결 — 생기부 교과학습발달상황에는 출결 자료가 없어 결석 0일(만점)로 둔다.
+         전원 같은 값이라 석차는 달라지지 않지만, 총점은 요강 만점과 맞는다. */
+      var att = spec.attend || null;
+      var attScore = att ? att.base + att.real : null;   // 결석 0일 → 기본 + 실질 만점
+
       out.generalItems = gi; out.generalAvg = gAvg;
       out.generalReal = gReal; out.generalScore = gScore;
       out.careerItems = ci; out.careerTop = top; out.careerCount = ci.length;
       out.careerScore = cScore; out.careerCompare = compare;
+      out.attendScore = attScore; out.attendAssumed = !!att;
       out.credits = gd; out.weighted = gn;
-      out.scoreMax = spec.basePoints + spec.realMax + spec.careerMax;
-      out.score = (gScore === null || cScore === null) ? null : round3(gScore + cScore);
+      out.scoreMax = spec.basePoints + spec.realMax + spec.careerMax + (att ? att.base + att.real : 0);
+      out.score = (gScore === null || cScore === null) ? null
+                : round3(gScore + cScore + (attScore || 0));
     } else if (spec.mode === 'weighted') {
       /* 공통·일반선택 — 교과별로 이수단위 가중평균한 뒤 교과 가중치로 합산.
          이수 과목이 하나도 없는 교과는 가중치에서 빼고 나머지로 재정규화한다
@@ -2277,7 +2376,8 @@ td.dv{font-weight:700}
     pctToScore: pctToScore, YS_ABC_POINT: YS_ABC_POINT,
     abcByGrade: abcByGrade, abcByRaw: abcByRaw, abcByAch: abcByAch,
     yonseiCareerABC: yonseiCareerABC,
-    YS_Z_TABLE: YS_Z_TABLE, ysPercentile: ysPercentile
+    YS_Z_TABLE: YS_Z_TABLE, ysPercentile: ysPercentile,
+    CNU_Z_GRADE: CNU_Z_GRADE, cnuZGrade: cnuZGrade, roundHalfUp: roundHalfUp
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.UnivCore = api;
@@ -2647,7 +2747,9 @@ function studentHTML(r) {
             (r.univ.careerCompare
               ? ' (' + r.univ.careerCount + '과목 → 비교내신)'
               : ' (상위 ' + sp.careerTopN + '과목)');
-    form += '  · 출결 100점 별도';
+    if (r.univ.attendScore !== null && r.univ.attendScore !== undefined)
+      form += '  +  출결 ' + n1(r.univ.attendScore) + ' (결석 0일 가정)';
+    form += '   =  ' + n1(r.univ.score) + ' / ' + r.univ.scoreMax;
   } else if (sp.mode === 'weighted') {
     form = '공통·일반선택 ' + n1(r.univ.generalScore) + ' (' + sp.generalPct + '점 만점)';
     if (sp.careerPct > 0)
@@ -2702,8 +2804,10 @@ function studentHTML(r) {
         (altT2 ? ' · 유형2는 석차등급 우수 ' + altT2.items.length + '과목만 반영' : ''),
         r.univ.included, '반영된 과목이 없습니다.');
   } else if (sp.mode === 'base') {
+    var zN = (r.univ.generalItems || []).filter(function (x) { return x.zGrade; }).length;
     sec('석차등급산출과목', (r.univ.generalItems || []).length + '과목 · ' + r.univ.credits +
-        '학점 · 평균 ' + n1(r.univ.generalAvg) + '점',
+        '학점 · 평균 ' + n1(r.univ.generalAvg) + '점' +
+        (zN ? ' · 석차등급이 없는 ' + zN + '과목은 Z점수로 등급 산출 (소인수 학교 규정)' : ''),
         r.univ.generalItems || [], '반영된 과목이 없습니다.');
     var topSet = {};
     (r.univ.careerTop || []).forEach(function (x) { topSet[x.subject] = 1; });
@@ -2894,6 +2998,14 @@ function factorBoxes(r, a, sp) {
         : r.univ.careerCount + '과목 중 성취도가 높은 상위 ' + sp.careerTopN + '과목(' +
           r.univ.careerTop.map(function (x) { return x.ach; }).join(' · ') + ')만 반영했습니다. ' +
           '최대 ' + sp.careerMax + '점.');
+    if (r.univ.attendScore !== null && r.univ.attendScore !== undefined)
+      h += box('출결 <span style="color:var(--faint)">가정치</span>',
+        n1(r.univ.attendScore), '',
+        '생기부 교과학습발달상황에는 출결 자료가 없어 <b>결석 0일(만점 ' +
+        (sp.attend.base + sp.attend.real) + '점)</b>으로 뒀습니다. ' +
+        '실제 계산은 기본 ' + sp.attend.base + '점 + (1 − 미인정 결석일수 ÷ 21) × ' + sp.attend.real +
+        '점이고, 미인정 지각 · 조퇴 · 결과 3회를 결석 1일로 봅니다 (질병 · 기타는 제외). ' +
+        '전원 같은 값이라 <b>석차는 달라지지 않습니다</b>.');
   } else if (sp.mode === 'weighted') {
     (a.areaGroups || []).forEach(function (g) {
       h += box(esc(g.label) + ' <span style="color:var(--faint)">가중치 ' + g.weight + '</span>',
@@ -3184,6 +3296,7 @@ function renderSpec() {
       ? '<tr><th>공통과목</th><td><b>반영하지 않음</b> — ' + esc(sp.commonSubjects.join(', ')) + '</td></tr>' : '') +
     '<tr><th>점수산출지표</th><td>' + esc(sp.rawNote) + '</td></tr>' +
     (sp.trunc ? '<tr><th>절사</th><td>계산은 소수점 이하 ' + sp.trunc + '자리 미만에서 절사</td></tr>' : '') +
+    (sp.compareNote ? '<tr><th>비교내신</th><td>' + esc(sp.compareNote) + '</td></tr>' : '') +
     '</tbody></table>' +
     '<div class="formula" style="margin-top:16px">교과 점수 = ' + esc(sp.formula) + '</div></div>';
 
