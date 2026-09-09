@@ -521,8 +521,10 @@
       /* 2022 개정 교육과정(내신 5등급 체계) 등급점수 — 표시용.
          본 계산기는 생기부에 기재된 9등급 체계를 그대로 쓴다. */
       gradeConv5: [100, 90, 80, 70, 0],
-      /* 진로선택 성취도 점수는 전형별 진로선택 총점에 비례한다 (A : B : C = 5 : 3 : 1).
-         C점수가 곧 비교내신 최저점이다 — 요강의 3 / 2.4 / 0.9와 일치한다. */
+      /* 성취도 등급점수표는 전형과 무관하게 한 벌이고, 전형별 축소는 계수로 건다.
+         (상위 3과목 등급점수의 합 ÷ 3) × 계수 — 계수 1 / 0.8 / 0.3, 총점 15 / 12 / 4.5.
+         계수를 C점수 3에 곱하면 3 / 2.4 / 0.9로, 요강의 비교내신 최저점과 일치한다. */
+      achPoint: { A: 15, B: 9, C: 3 },
       careerTopN: 3,
       /* 석차등급이 산출되지 않는 소인수 학교 — Z점수로 석차등급을 매긴다 */
       zToGrade: true,
@@ -541,7 +543,7 @@
           areaNote: '국어 · 영어 · 수학 · 한국사 · 사회 · 과학',
           includeForeignHanmun: false,
           basePoints: 660, coef: 2.25, realMax: 225, careerMax: 15,
-          achPoint: { A: 15, B: 9, C: 3 },
+          careerCoef: 1,
           compareCoef: 0.06666, compareMin: 3,
           attend: { base: 90, real: 10, coef: 0.04444 },
           scaleMax: 1000 },
@@ -550,7 +552,7 @@
           areaNote: '국어 · 영어 · 수학 · 한국사 · 사회 · 과학 + 제2외국어 / 한문',
           includeForeignHanmun: true,
           basePoints: 660, coef: 2.25, realMax: 225, careerMax: 15,
-          achPoint: { A: 15, B: 9, C: 3 },
+          careerCoef: 1,
           compareCoef: 0.06666, compareMin: 3,
           attend: { base: 90, real: 10, coef: 0.04444 },
           scaleMax: 1000 },
@@ -559,7 +561,7 @@
           areaNote: '국어 · 영어 · 수학 · 한국사 · 사회 · 과학',
           includeForeignHanmun: false,
           basePoints: 528, coef: 1.8, realMax: 180, careerMax: 12,
-          achPoint: { A: 12, B: 7.2, C: 2.4 },
+          careerCoef: 0.8,
           compareCoef: 0.06666, compareMin: 2.4,
           attend: { base: 72, real: 8, coef: 0.04444 },
           scaleMax: 800 },
@@ -568,7 +570,7 @@
           areaNote: '국어 · 영어 · 한국사 · 사회 (수학 · 과학 · 제2외국어 / 한문 미반영)',
           includeForeignHanmun: false,
           basePoints: 528, coef: 1.8, realMax: 180, careerMax: 12,
-          achPoint: { A: 12, B: 7.2, C: 2.4 },
+          careerCoef: 0.8,
           compareCoef: 0.06666, compareMin: 2.4,
           attend: { base: 72, real: 8, coef: 0.04444 },
           scaleMax: 800 },
@@ -577,7 +579,7 @@
           areaNote: '국어 · 영어 · 한국사 · 사회 (수학 · 과학 · 제2외국어 / 한문 미반영)',
           includeForeignHanmun: false,
           basePoints: 193.5, coef: 0.72, realMax: 72, careerMax: 4.5,
-          achPoint: { A: 4.5, B: 2.7, C: 0.9 },
+          careerCoef: 0.3,
           /* 요강이 최저점 0.9만 밝힌 구간 — 계수는 다른 전형과 같은 규칙
              (진로선택 총점 ÷ 실질점수 만점 = 4.5 ÷ 72)으로 두었다 */
           compareCoef: 0.0625, compareMin: 0.9,
@@ -639,17 +641,16 @@
             rows: sp.gradeConv5.map(function (v, i) {
               return [{ v: i + 1, grade: i + 1 }, { v: v, num: true }]; }) },
           { title: '진로선택 성취도별 등급점수 (성취도 상위 ' + sp.careerTopN + '과목만)',
-            head: ['성취도'].concat(sp.variants.map(function (v) { return v.label; })),
+            head: ['성취도', '등급점수'],
             rows: ['A', 'B', 'C'].map(function (k) {
-              return [{ v: k, strong: true }].concat(sp.variants.map(function (v) {
-                return { v: v.achPoint[k], num: true, strong: v.key === sp.variantKey };
-              })); }) },
+              return [{ v: k, strong: true }, { v: sp.achPoint[k], num: true }]; }) },
           { title: '전형별 반영점수 — 현재 선택: ' + sp.variant.label,
-            head: ['전형', '석차등급산출 기본', '석차등급산출 실질', '진로선택', '출결', '총점'],
+            head: ['전형', '석차등급산출 기본', '실질점수 계수', '진로선택 계수', '진로선택', '출결', '총점'],
             rows: sp.variants.map(function (v) {
               return [{ v: v.label, strong: v.key === sp.variantKey },
                       { v: v.basePoints, num: true },
-                      { v: v.realMax, num: true },
+                      { v: '× ' + v.coef + ' (최대 ' + v.realMax + ')' },
+                      { v: '× ' + v.careerCoef },
                       { v: v.careerMax, num: true },
                       { v: v.attend.base + v.attend.real, num: true },
                       { v: v.scaleMax, num: true }];
@@ -1196,6 +1197,20 @@
 
   /* ═══════════════ 학생 1명 · 대학 1곳 산출 ═══════════════ */
   function computeUniv(records, spec, opt) {
+    /* 전남대 소인수 학교 규정은 「전 과목에서 석차등급이 없고 표준편차가 표기된 경우」다.
+       한 과목이라도 석차등급이 있으면 일반 학교이므로, 석차등급 없는 소인수·공동교육과정
+       과목은 요강대로 그냥 반영하지 않는다 (Z 변환을 쓰지 않는다). */
+    var zSchool = false;
+    if (spec.zToGrade) {
+      var anyGrade = records.some(function (r) { return r.grade >= 1 && r.grade <= 9; });
+      zSchool = !anyGrade;
+      if (anyGrade) {
+        var s2 = {};
+        Object.keys(spec).forEach(function (k) { s2[k] = spec[k]; });
+        s2.zToGrade = false;
+        spec = s2;
+      }
+    }
     var items = records.map(function (r) { return evalRecord(r, spec, opt); });
     var inc = items.filter(function (it) { return it.included; });
     var out = {
@@ -1203,6 +1218,7 @@
       excluded: items.filter(function (it) { return !it.included; }),
       warns: items.filter(function (it) { return it.warn; }),
       groups: null, renormalized: false,
+      zSchool: zSchool,
       artsPe: computeArtsPe(items)
     };
 
@@ -1313,7 +1329,8 @@
       if (ci.length >= spec.careerTopN) {
         var cs = 0;
         top.forEach(function (it) { cs += it.use; });
-        cScore = round3(cs / spec.careerTopN);
+        /* 요강 산식: (상위 N과목 등급점수의 합 ÷ N) × 전형별 계수, 소수 넷째 자리에서 반올림 */
+        cScore = round3(cs / spec.careerTopN * (spec.careerCoef === undefined ? 1 : spec.careerCoef));
       } else {
         compare = true;
         cScore = gReal === null ? null

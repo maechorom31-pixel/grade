@@ -762,6 +762,18 @@ section('19-c. 진로선택 3과목 미만 → 비교내신');
 /* 요강 예시: 석차등급산출과목 실질점수 222.521 → 222.521 × 0.06666 = 14.83 */
 near('요강 예시 그대로 — 222.521 × 0.06666 → 14.83',
      Math.round(222.521 * CNU('ilgwal').compareCoef * 100) / 100, 14.83);
+/* 요강 예시2: 실기/실적(예능실기) 실질점수 65.154 → 65.154 × 0.0625 = 4.07 */
+near('요강 예시 그대로 — 65.154 × 0.0625 → 4.07',
+     Math.round(65.154 * CNU('siljeok').compareCoef * 100) / 100, 4.07);
+/* 출결 비교내신 — 요강 예시: 222.521 × 0.04444 = 9.99, 65.154 × 0.04166 = 2.71 */
+/* 요강 예시1은 「222.521 × 0.04444 = 9.99」로 적혀 있으나 실제 곱은 9.88883 → 9.89다.
+   같은 실질점수로 낸 진로선택 예시(× 0.06666 = 14.83)는 맞아떨어지므로 오기로 본다.
+   출결은 이 도구에서 만점 가정이라 산출에는 영향이 없다. */
+near('출결 비교내신 계수 대조 — 222.521 × 0.04444 → 9.89 (요강 표기 9.99는 오기)',
+     Math.round(222.521 * CNU('ilgwal').attend.coef * 100) / 100, 9.89);
+near('출결 비교내신 예시 — 65.154 × 0.04166 → 2.71',
+     Math.round(65.154 * CNU('siljeok').attend.coef * 100) / 100, 2.71);
+near('  기본 27 + 2.71 = 29.71', 27 + 2.71, 29.71);
 const twoCareer = N_STU.filter(r => !['여행지리', '생활과 과학'].includes(r.subject));
 const nu2 = U.computeUniv(twoCareer, CNU('ilgwal'), OPT);
 eq('진로선택 2과목 → 비교내신 적용', nu2.careerCompare, true);
@@ -802,6 +814,9 @@ section('19-e. 전형별 배점 — 일괄 · 단계 · 실기/실적');
     eq(`${k} 기본 ${base} · 계수 ${coef}`, [sp.basePoints, sp.coef].join('/'), `${base}/${coef}`);
     eq(`  ${k} 실질 ${real} · 진로 ${career}`, [sp.realMax, sp.careerMax].join('/'), `${real}/${career}`);
     eq(`  ${k} 출결 ${att}`, sp.attend.base + sp.attend.real, att);
+    /* 요강은 성취도표를 한 벌만 두고 (합÷3)에 전형별 계수를 건다 — C점수 × 계수 = 최저점 */
+    eq(`  ${k} 진로선택 계수 × ${career / 15}`, sp.careerCoef, career / 15);
+    near(`  ${k} C점수 × 계수 = 비교내신 최저점 ${cmin}`, sp.achPoint.C * sp.careerCoef, cmin);
     eq(`  ${k} 비교내신 최저점 ${cmin}`, sp.compareMin, cmin);
     /* 기본 + 실질 + 진로 + 출결 = 요강 총점 */
     near(`  ${k} 총점 ${total}`, sp.basePoints + sp.realMax + sp.careerMax + att, total);
@@ -824,26 +839,33 @@ section('19-f. 소인수 학교 Z점수 → 석차등급');
  [-0.73, 6], [-0.74, 7], [-1.22, 7], [-1.23, 8], [-1.75, 8], [-1.76, 9], [-3.00, 9]]
   .forEach(([z, g]) => eq(`Z ${z} → ${g}등급`, U.cnuZGrade(z), g));
 eq('Z가 없으면 등급도 없음', U.cnuZGrade(null), null);
-/* 석차등급 칸이 비어도 원점수 · 평균 · 표준편차가 있으면 Z로 등급을 만든다 */
-const zRec = rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4,
-                   raw: 88, avg: 70, std: 12 });          // Z = 1.5 → 2등급
-const zIt = U.evalRecord(zRec, CNU('ilgwal'), OPT);
-eq('석차등급이 없어도 Z로 반영', zIt.included, true);
-eq('  Z 1.5 → 2등급', zIt.zGrade, 2);
-eq('  등급점수 95', zIt.use, 95);
-eq('  산출 근거 표시', zIt.basis, 'Z 1.5 → 2등급');
-/* 표준편차가 없으면 Z를 못 내므로 종전대로 제외 */
-eq('표준편차가 없으면 Z를 못 내 여전히 제외',
-   U.evalRecord(rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, raw: 88 }),
-                CNU('ilgwal'), OPT).reason, '등급·성취도 없음');
+/* 요강 예시: 원점수 95 · 과목평균 82.1 · 표준편차 10.1 → Z 1.28 → 2등급 */
+near('요강 예시 Z = (95 − 82.1) / 10.1 → 1.28', U.roundHalfUp((95 - 82.1) / 10.1, 100), 1.28);
+eq('  Z 1.28 → 2등급', U.cnuZGrade((95 - 82.1) / 10.1), 2);
+/* 「전 과목에서 석차등급이 없고」가 조건이다 — 소인수 학교 학생 */
+const zSmall = [
+  rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, raw: 88, avg: 70, std: 12 }),
+  rec({ year: 1, sem: 1, category: '영어', subject: '영어', credit: 4, raw: 95, avg: 82.1, std: 10.1 })
+];
+const nuZ = U.computeUniv(zSmall, CNU('ilgwal'), OPT);
+eq('전 과목 석차등급 미산출로 판정', nuZ.zSchool, true);
+eq('  두 과목 모두 Z로 반영', nuZ.generalItems.length, 2);
+eq('  Z 1.5 → 2등급 · Z 1.28 → 2등급', nuZ.generalItems.map(x => x.zGrade).join(','), '2,2');
+eq('  산출 근거 표시', nuZ.generalItems[0].basis, 'Z 1.5 → 2등급');
+near('  등급점수 평균 95', nuZ.generalAvg, 95);
+/* 한 과목이라도 석차등급이 있으면 일반 학교 — 소인수 과목은 요강대로 그냥 제외 */
+const zMixed = zSmall.concat([
+  rec({ year: 1, sem: 1, category: '수학', subject: '수학', credit: 4, grade: 3 })]);
+const nuM = U.computeUniv(zMixed, CNU('ilgwal'), OPT);
+eq('석차등급이 하나라도 있으면 소인수 학교 아님', nuM.zSchool, false);
+eq('  석차등급 없는 과목은 반영하지 않음', nuM.generalItems.length, 1);
+eq('  제외 사유', nuM.excluded.filter(x => x.subject === '국어')[0].reason, '등급·성취도 없음');
+/* 표준편차가 없으면 Z를 못 내므로 소인수 학교라도 제외 */
+eq('표준편차가 없으면 Z를 못 내 제외',
+   U.computeUniv([rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, raw: 88 })],
+                 CNU('ilgwal'), OPT).excluded[0].reason, '등급·성취도 없음');
 eq('  Z 변환은 전남대 규격에서만 — 외대는 종전대로 제외',
-   U.evalRecord(rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4,
-                      raw: 88, avg: 70, std: 12 }), HUFS, OPT).reason, '등급·성취도 없음');
-/* 석차등급이 있으면 Z는 쓰지 않는다 */
-const zBoth = U.evalRecord(rec({ year: 1, sem: 1, category: '국어', subject: '국어',
-                                 credit: 4, grade: 5, raw: 95, avg: 70, std: 12 }),
-                           CNU('ilgwal'), OPT);
-eq('석차등급이 있으면 Z 무시', [zBoth.use, zBoth.zGrade || '-'].join('/'), '80/-');
+   U.computeUniv(zSmall, HUFS, OPT).excluded[0].reason, '등급·성취도 없음');
 
 section('19-g. 2022 개정 내신 5등급 체계 등급점수표');
 [[1, 100], [2, 90], [3, 80], [4, 70], [5, 0]]
@@ -851,6 +873,8 @@ section('19-g. 2022 개정 내신 5등급 체계 등급점수표');
 eq('비교내신 대상 안내 문구 제공', /검정고시/.test(CNU('ilgwal').compareNote), true);
 eq('산출 기준 표 6종 (9등급 · 5등급 · 성취도 · 전형별 배점 · 비교내신 · Z변환)',
    CNU('ilgwal').specTables(CNU('ilgwal')).length, 6);
+eq('성취도 등급점수표는 전형과 무관하게 한 벌 (A15 · B9 · C3)',
+   ['ilgwal', 'dangye', 'siljeok'].map(k => CNU(k).achPoint.A).join(','), '15,15,15');
 
 /* ═════════ 20. 명지대 — 이수학점 가산점 구조 ═════════ */
 section('20. 명지대 학생부교과(특성화고교전형 외) — 규격');

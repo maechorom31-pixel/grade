@@ -420,7 +420,7 @@ function studentHTML(r) {
     var zN = (r.univ.generalItems || []).filter(function (x) { return x.zGrade; }).length;
     sec('석차등급산출과목', (r.univ.generalItems || []).length + '과목 · ' + r.univ.credits +
         '학점 · 평균 ' + n1(r.univ.generalAvg) + '점' +
-        (zN ? ' · 석차등급이 없는 ' + zN + '과목은 Z점수로 등급 산출 (소인수 학교 규정)' : ''),
+        (zN ? ' · 전 과목 석차등급 미산출(소인수 학교)이라 ' + zN + '과목을 Z점수로 등급 변환' : ''),
         r.univ.generalItems || [], '반영된 과목이 없습니다.');
     var topSet = {};
     (r.univ.careerTop || []).forEach(function (x) { topSet[x.subject] = 1; });
@@ -610,7 +610,8 @@ function factorBoxes(r, a, sp) {
           '이수한 진로선택 성적은 반영되지 않습니다.'
         : r.univ.careerCount + '과목 중 성취도가 높은 상위 ' + sp.careerTopN + '과목(' +
           r.univ.careerTop.map(function (x) { return x.ach; }).join(' · ') + ')만 반영했습니다. ' +
-          '최대 ' + sp.careerMax + '점.');
+          '등급점수 합 ÷ ' + sp.careerTopN +
+          (sp.careerCoef === 1 ? '' : ' × ' + sp.careerCoef) + ' · 최대 ' + sp.careerMax + '점.');
     if (r.univ.attendScore !== null && r.univ.attendScore !== undefined)
       h += box('출결 <span style="color:var(--faint)">가정치</span>',
         n1(r.univ.attendScore), '',
