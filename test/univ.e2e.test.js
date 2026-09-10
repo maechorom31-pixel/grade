@@ -275,6 +275,55 @@ const EXEC = ['/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headle
   });
   await page.screenshot({ path: 'shot-univ-cnu.png', fullPage: true });
 
+  /* 건국대 — 계열별 반영교과 · 진로선택 등급비율 · 이수단위 감점 · 광역제 */
+  const ku = await page.evaluate(async () => {
+    document.querySelector('nav button[data-tab="data"]').click();
+    const sel = document.getElementById('optUniv');
+    sel.value = 'konkuk'; sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 400));
+    const vs = document.getElementById('optVariant');
+    const keys = [...vs.options].map(o => o.value);
+    const out = {};
+    for (const k of keys) {
+      vs.value = k; vs.dispatchEvent(new Event('change', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 300));
+      document.querySelector('nav button[data-tab="student"]').click();
+      const q = document.getElementById('stuQuery');
+      q.value = '3101'; q.dispatchEvent(new Event('input', { bubbles: true }));
+      await new Promise(r => setTimeout(r, 300));
+      const stuTxt = document.getElementById('stuBody').innerText;
+      document.querySelector('nav button[data-tab="spec"]').click();
+      await new Promise(r => setTimeout(r, 200));
+      out[k] = { stuTxt, specTxt: document.getElementById('specBody').innerText };
+    }
+    return { keys, out };
+  });
+  console.log('\n═══ 건국대로 전환 ═══');
+  console.log('계열 목록:', ku.keys.join(', '));
+  console.log('--- 학생 조회 3101 (인문계) ---\n' + ku.out['inmun'].stuTxt.slice(0, 1800));
+
+  checks.push(['건국대 계열 3종 제공', ku.keys.length === 3]);
+  checks.push(['기준점수 표기 (8등급 4점)', ku.out['inmun'].specTxt.includes('8\t4')]);
+  checks.push(['계열별 반영교과 표 표시', ku.out['inmun'].specTxt.includes('계열별 반영교과')]);
+  checks.push(['등급비율 변환표 표시',
+    ku.out['inmun'].specTxt.includes('등급비율에 따른 석차등급') &&
+    ku.out['inmun'].specTxt.includes('96% 이상 ~ 100% 미만')]);
+  checks.push(['진로선택 성취도 A는 1등급 안내',
+    ku.out['inmun'].specTxt.includes('학생비율과 관계없이 1등급')]);
+  checks.push(['이수단위 감점표 표시', ku.out['inmun'].specTxt.includes('이수단위 70단위 이하일 때 감점')]);
+  checks.push(['× 100 척도 산식 표시', ku.out['inmun'].stuTxt.includes('× 100')]);
+  checks.push(['이수단위 요인 상자 표시',
+    /이수단위/.test(ku.out['inmun'].stuTxt)]);
+  checks.push(['자연계는 사회 미반영 안내',
+    ku.out['jayeon'].specTxt.includes('한국사 외 사회 미반영')]);
+  checks.push(['광역제는 두 계열을 모두 내고 채택 표시',
+    ku.out['ku'].stuTxt.includes('← 채택') && ku.out['ku'].stuTxt.includes('계열별 반영 성적')]);
+  await page.evaluate(async () => {
+    document.querySelector('nav button[data-tab="student"]').click();
+    await new Promise(r => setTimeout(r, 250));
+  });
+  await page.screenshot({ path: 'shot-univ-konkuk.png', fullPage: true });
+
   /* 외대로 되돌리기 */
   await page.evaluate(async () => {
     document.querySelector('nav button[data-tab="data"]').click();

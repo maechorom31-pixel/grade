@@ -380,6 +380,15 @@ function studentHTML(r) {
     if (sp.bonusPerCredit)
       form += ' = ' + n1(r.univ.base) + '  +  가산점 ' + n1(r.univ.bonus) +
               ' (' + r.univ.bonusCredits + '학점 × ' + sp.bonusPerCredit + ')';
+    if (sp.scoreMul) form += ' = ' + n1(r.univ.base) + ' × ' + sp.scoreMul;
+    if (r.univ.creditCoef !== undefined && r.univ.creditCoef < 1)
+      form += '  ×  ' + n1(r.univ.creditCoef) +
+              ' (' + sp.creditFloor.units + '단위에 ' + r.univ.creditShort + '단위 미달)';
+    if (sp.scoreMul) form += '  =  ' + n1(r.univ.score);
+    if (r.univ.subs)
+      form = (r.univ.subs || []).map(function (o) {
+        return o.label.replace(/ .*/, '') + ' ' + n1(o.score) + (o.chosen ? ' ← 채택' : '');
+      }).join('   ') + '   ·   ' + form;
   }
   h += '<div class="cmpbox accent"><div class="h"><em>' + esc(sp.name) + '</em> 교과 점수</div>' +
        '<div class="v num">' + fscore(r.univ.score) + '</div>' +
@@ -620,6 +629,40 @@ function factorBoxes(r, a, sp) {
         '실제 계산은 기본 ' + sp.attend.base + '점 + (1 − 미인정 결석일수 ÷ 21) × ' + sp.attend.real +
         '점이고, 미인정 지각 · 조퇴 · 결과 3회를 결석 1일로 봅니다 (질병 · 기타는 제외). ' +
         '전원 같은 값이라 <b>석차는 달라지지 않습니다</b>.');
+  } else if (sp.creditFloor) {
+    if (r.univ.subs) {
+      var lost = (r.univ.subs || []).filter(function (o) { return !o.chosen && o.score !== null; })[0];
+      h += box('계열별 반영 성적', esc(r.univ.bestLabel || '—') + ' 채택', '',
+        (r.univ.subs || []).map(function (o) {
+          return '<b>' + esc(o.label) + '</b> ' + n1(o.score) + '점(' + o.credits + '단위)';
+        }).join(' · ') + '. 요강이 「두 성적 중 우수한 성적 반영」이라 둘 다 내고 높은 쪽을 씁니다.' +
+        (lost && r.univ.score !== null
+          ? ' 차이는 <b>' + signed(r.univ.score - lost.score, 2) + '점</b>입니다.' : ''));
+    }
+    h += (r.univ.creditCoef !== undefined && r.univ.creditCoef < 1)
+      ? box('이수단위 감점', '× ' + n1(r.univ.creditCoef), 'down',
+          '반영 이수단위가 <b>' + r.univ.credits + '단위</b>로 기준 ' + sp.creditFloor.units +
+          '단위에 <b>' + r.univ.creditShort + '단위</b> 모자라 ' +
+          '<b class="down">' + n1(r.univ.scoreBeforeFloor - r.univ.score) + '점</b>이 깎였습니다 ' +
+          '(' + sp.creditFloor.coef + ' − ' + r.univ.creditShort + ' × ' + sp.creditFloor.per + ').')
+      : box('이수단위', r.univ.credits + '단위', 'up',
+          '반영 이수단위가 기준 ' + sp.creditFloor.units + '단위를 넘어 <b>감점이 없습니다</b>. ' +
+          sp.creditFloor.units + '단위 이하로 떨어지면 점수에 ' + sp.creditFloor.coef +
+          ' 이하의 계수가 곱해집니다.');
+    var ratioIts = (r.univ.included || []).filter(function (x) { return x.ratioPct !== undefined; });
+    var aIts = (r.univ.included || []).filter(function (x) { return x.kind === 'career' && x.ach === 'A'; });
+    h += box('진로선택 성취도 A', aIts.length + '과목', aIts.length ? 'up' : 'flat',
+      aIts.length
+        ? '성취도 A는 <b>학생비율과 관계없이 1등급</b>이라 기준점수 만점(' + sp.gradeConv[0] + ')을 받습니다 — ' +
+          aIts.reduce(function (t, x) { return t + x.credit; }, 0) + '단위. ' +
+          (ratioIts.length
+            ? 'B · C인 ' + ratioIts.length + '과목은 등급비율(' +
+              ratioIts.map(function (x) { return Math.round(x.ratioPct * 10) / 10 + '%'; }).join(' · ') +
+              ')로 등급을 매겼습니다.'
+            : '')
+        : (ratioIts.length
+            ? '성취도 B · C인 ' + ratioIts.length + '과목을 등급비율로 환산했습니다.'
+            : '반영교과에 진로선택 과목이 없습니다.'));
   } else if (sp.mode === 'weighted') {
     (a.areaGroups || []).forEach(function (g) {
       h += box(esc(g.label) + ' <span style="color:var(--faint)">가중치 ' + g.weight + '</span>',
@@ -922,7 +965,8 @@ function renderSpec() {
           var v = c.grade ? '<span class="gchip" style="' + gcolor(c.grade) + '">' + c.v + '</span>'
                 : c.strong ? '<b>' + esc(c.v) + '</b>'
                 : c.num ? Number(c.v).toLocaleString() : esc(c.v);
-          return '<td class="' + (i === 0 ? 'c' : 'r num') + '">' + v + '</td>';
+          return '<td class="' + (i === 0 ? 'c' : 'r num') + '"' +
+                 (c.span > 1 ? ' colspan="' + c.span + '"' : '') + '>' + v + '</td>';
         }).join('') + '</tr>';
       }).join('') + '</tbody></table></div>';
   }).join('') + '</div>';

@@ -1334,6 +1334,122 @@ eq('  빠진 영역 이름', yuN.missingGroups[0].label, '진로선택과목 (�
 eq('반영과목 B가 하나도 없으면 감점 0',
    U.computeUniv(Y_STU.filter(r => !['체육', '정보'].includes(r.subject)), YS, OPT).penalty, 0);
 
+/* ═════════ 24. 건국대 — 기준점수 · 등급비율 · 이수단위 ═════════ */
+section('24. 건국대 학생부교과 — 규격');
+const KU = k => U.resolve('konkuk', k);
+[[1, 10], [2, 9.5], [3, 9], [4, 8.5], [5, 8], [6, 7], [7, 6], [8, 4], [9, 0]]
+  .forEach(([g, v]) => eq(`${g}등급 → 기준점수 ${v}`, KU('inmun').gradeConv[g - 1], v));
+eq('인문계 · 예체능계 반영교과', KU('inmun').areas.join(','), '국어,영어,수학,사회');
+eq('자연계 반영교과', KU('jayeon').areas.join(','), '국어,영어,수학,과학');
+eq('광역제는 두 계열 성적 중 우수한 쪽', KU('ku').bestOf.join(','), 'inmun,jayeon');
+eq('전 학년 반영 · 1,000점 척도', [KU('inmun').scoreMul, KU('inmun').scaleMax].join('/'), '100/1000');
+
+const kv = (k, o) => U.evalRecord(rec(Object.assign({ credit: 3 }, o)), KU(k), OPT);
+eq('한국사는 인문계 반영',
+   kv('inmun', { category: '한국사', subject: '한국사', grade: 3 }).included, true);
+eq('한국사는 자연계도 반영 (사회 교과군이지만 예외)',
+   kv('jayeon', { category: '한국사', subject: '한국사', grade: 3 }).included, true);
+eq('  나이스 교과가 사회로 묶여 나와도 과목명으로 살린다',
+   kv('jayeon', { category: '사회(역사/도덕포함)', subject: '한국사', grade: 3 }).included, true);
+eq('한국사 외 사회는 자연계 미반영',
+   kv('jayeon', { category: '사회(역사/도덕포함)', subject: '통합사회', grade: 2 }).reason,
+   '반영교과 아님 (사회)');
+eq('과학은 인문계 미반영',
+   kv('inmun', { category: '과학', subject: '통합과학', grade: 2 }).reason, '반영교과 아님 (과학)');
+eq('제2외국어는 어느 계열도 미반영',
+   kv('inmun', { category: '제2외국어', subject: '일본어Ⅰ', grade: 1 }).reason, '반영교과 아님 (기타)');
+eq('공통 · 일반 · 진로선택을 구분하지 않는다 — 공통과목도 반영',
+   kv('inmun', { category: '국어', subject: '국어', grade: 2 }).use, 9.5);
+
+section('24-b. 진로선택 — 성취도별 등급비율로 석차등급');
+/* 요강 구간표: 100%↑ 1등급 · 96%↑ 2 · 89%↑ 3 · 77%↑ 4 · 60%↑ 5 · 40%↑ 6 · 23%↑ 7 · 11%↑ 8 · 4%↑ 9 */
+[[100, 1], [99.9, 2], [96, 2], [95.9, 3], [89, 3], [88.9, 4], [77, 4], [76.9, 5],
+ [60, 5], [59.9, 6], [40, 6], [39.9, 7], [23, 7], [22.9, 8], [11, 8], [10.9, 9],
+ [4, 9], [3.5, 9], [0, 9]]
+  .forEach(([p, g]) => eq(`등급비율 ${p}% → ${g}등급`, U.kuRatioGrade(p), g));
+eq('비율이 없으면 등급도 없음', U.kuRatioGrade(null), null);
+
+/* A는 비율과 무관하게 1등급 */
+const kA = kv('inmun', { year: 3, category: '국어', subject: '심화 국어', ach: 'A',
+                         dist: { A: 20, B: 50, C: 30 } });
+eq('성취도 A는 학생비율과 무관하게 1등급', kA.convGrade, 1);
+eq('  기준점수 10', kA.use, 10);
+eq('  근거 표시', kA.basis, '성취도 A → 1등급');
+/* B는 (B% + C%) */
+const kB = kv('inmun', { year: 3, category: '국어', subject: '심화 국어', ach: 'B',
+                         dist: { A: 75.7, B: 20.9, C: 3.5 } });
+eq('성취도 B는 B% + C% = 24.4% → 7등급', kB.convGrade, 7);
+eq('  등급비율 기록', Math.round(kB.ratioPct * 10) / 10, 24.4);
+eq('  근거 표시', kB.basis, '성취도 B · 등급비율 24.4% → 7등급');
+/* C는 C%만 */
+const kC = kv('inmun', { year: 3, category: '국어', subject: '심화 국어', ach: 'C',
+                         dist: { A: 75.7, B: 20.9, C: 3.5 } });
+eq('성취도 C는 C% = 3.5% → 9등급', kC.convGrade, 9);
+eq('  기준점수 0', kC.use, 0);
+/* 분포비율이 없으면 B · C는 반영 불가, A는 그대로 */
+eq('분포비율이 없으면 B는 제외',
+   kv('inmun', { year: 3, category: '국어', subject: '심화 국어', ach: 'B' }).reason,
+   '성취도별 학생비율 없음');
+eq('  경고 표시', /학생비율/.test(
+   kv('inmun', { year: 3, category: '국어', subject: '심화 국어', ach: 'B' }).warn), true);
+eq('분포비율이 없어도 A는 반영',
+   kv('inmun', { year: 3, category: '국어', subject: '심화 국어', ach: 'A' }).included, true);
+/* 성취도만 나오는 공통 · 일반선택은 진로선택 규정을 끌어 쓰지 않는다 */
+eq('과학탐구실험(공통 · 성취도)은 요강 미규정이라 제외',
+   kv('jayeon', { category: '과학', subject: '과학탐구실험', ach: 'A' }).reason,
+   '성취도만 산출되는 공통과목 (요강 미규정)');
+
+section('24-c. 종합 시나리오 (손계산 대조)');
+/*  국어 8단위 2등급(9.5) · 수학 8단위 3등급(9) · 영어 8단위 1등급(10)
+    한국사 6단위 4등급(8.5) · 통합사회 6단위 2등급(9.5) · 통합과학 6단위 5등급(8)
+    여행지리(진로 · 사회) 5단위 A → 1등급(10)
+    물리학Ⅱ(진로 · 과학) 5단위 B, 분포 A30 B50 C20 → 등급비율 70% → 5등급(8)
+  [인문계] (76 + 72 + 80 + 51 + 57 + 50) / 41 = 386/41 = 9.41463…  × 100 = 941.463…
+           41단위 → 70에 29단위 미달 → × (0.96 − 29×0.002 = 0.902) = 849.2…
+  [자연계] (76 + 72 + 80 + 51 + 48 + 40) / 41 = 367/41 = 8.95121…  → 807.4…          */
+const K_STU = [
+  rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 8, grade: 2 }),
+  rec({ year: 1, sem: 1, category: '수학', subject: '수학', credit: 8, grade: 3 }),
+  rec({ year: 1, sem: 1, category: '영어', subject: '영어', credit: 8, grade: 1 }),
+  rec({ year: 2, sem: 1, category: '한국사', subject: '한국사', credit: 6, grade: 4 }),
+  rec({ year: 1, sem: 2, category: '사회(역사/도덕포함)', subject: '통합사회', credit: 6, grade: 2 }),
+  rec({ year: 1, sem: 2, category: '과학', subject: '통합과학', credit: 6, grade: 5 }),
+  rec({ year: 3, sem: 1, category: '사회(역사/도덕포함)', subject: '여행지리', credit: 5, ach: 'A' }),
+  rec({ year: 3, sem: 1, category: '과학', subject: '물리학Ⅱ', credit: 5, ach: 'B',
+        dist: { A: 30, B: 50, C: 20 } })
+];
+const ki = U.computeUniv(K_STU, KU('inmun'), OPT);
+eq('인문계 반영 41단위', ki.credits, 41);
+near('  가중평균 = 386/41', ki.base, 386 / 41);
+near('  이수단위 계수 = 0.96 − 29 × 0.002', ki.creditCoef, 0.902);
+near('  감점 전 = 386/41 × 100', ki.scoreBeforeFloor, 386 / 41 * 100);
+near('  최종 = 941.463… × 0.902', ki.score,
+     Math.round(386 / 41 * 100 * 0.902 * 1e4) / 1e4);
+const kj = U.computeUniv(K_STU, KU('jayeon'), OPT);
+eq('자연계도 41단위 (통합사회 · 여행지리 빠지고 통합과학 · 물리학Ⅱ 들어옴)', kj.credits, 41);
+near('  가중평균 = 367/41', kj.base, 367 / 41);
+eq('  물리학Ⅱ B → 등급비율 70% → 5등급',
+   kj.included.filter(x => x.subject === '물리학Ⅱ')[0].convGrade, 5);
+const kk = U.computeUniv(K_STU, KU('ku'), OPT);
+eq('광역제는 두 계열을 모두 산출', kk.subs.length, 2);
+eq('  높은 쪽(인문계) 채택', kk.bestKey, 'inmun');
+near('  채택 점수는 인문계와 같다', kk.score, ki.score);
+eq('  자연계 결과도 남긴다', kk.subs.filter(o => o.key === 'jayeon')[0].chosen, false);
+
+section('24-d. 이수단위 감점 경계');
+/* 71단위 이상은 감점 없음, 70단위부터 0.96, 이후 1단위마다 0.002 */
+function kuUnits(units) {
+  return U.computeUniv([rec({ year: 1, sem: 1, category: '국어', subject: '국어',
+                              credit: units, grade: 1 })], KU('inmun'), OPT);
+}
+eq('71단위는 감점 없음', kuUnits(71).creditCoef, 1);
+near('  점수 그대로 1000', kuUnits(71).score, 1000);
+near('70단위는 × 0.96', kuUnits(70).creditCoef, 0.96);
+near('  1000 × 0.96 = 960', kuUnits(70).score, 960);
+near('69단위는 × 0.958', kuUnits(69).creditCoef, 0.958);
+near('50단위는 × 0.92', kuUnits(50).creditCoef, 0.92);
+eq('환산등급 상당은 100을 곱하기 전 가중평균 기준', kuUnits(71).equiv, 1);
+
 /* ═════════ 결과 ═════════ */
 console.log('\n' + '─'.repeat(60));
 if (failures.length) {
