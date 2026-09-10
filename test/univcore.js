@@ -955,6 +955,136 @@
             ] }
         ];
       }
+    },
+
+/* ────────── 건국대학교 · 학생부 교과 (전 학년 · 석차등급 · 이수단위) ────────── */
+    konkuk: {
+      id: 'konkuk', name: '건국대학교', short: '건국대',
+      types: '학생부교과 (인문 · 자연 · 예체능 · KU자유전공학부)',
+      target: '졸업예정자 및 졸업자 모두 3학년 1학기까지의 성적을 반영',
+      formula: 'Σ(반영과목 기준점수 × 이수단위) ÷ Σ(반영과목 이수단위) × 100',
+      ratioNote: '전 학년 반영 · 학년별 가중치 없음 · 일반 · 공통 · 진로선택을 구분하지 않음',
+      rawNote: '기준점수는 1등급 10 · 2등급 9.5 · 3등급 9 · 4등급 8.5 · 5등급 8 · 6등급 7 · 7등급 6 · 8등급 4 · 9등급 0',
+      mode: 'pooled',
+      scaleMax: 1000,
+      trunc: null,
+      round: 4,
+      excludeCommon: false,
+      careerAreaLimited: true,
+      gradeConv: [10, 9.5, 9, 8.5, 8, 7, 6, 4, 0],
+      scoreMul: 100,                 // 가중평균(0~10)에 100을 곱해 1,000점 척도로
+      /* 반영 이수단위가 70단위 이하면 점수를 깎는다 (요강) */
+      creditFloor: { units: 70, coef: 0.96, per: 0.002 },
+      /* 환산등급 상당치는 100을 곱하기 전 가중평균(기준점수 척도)으로 낸다 */
+      equivScale: [10, 9.5, 9, 8.5, 8, 7, 6, 4, 0],
+      equivFrom: function (out) { return out.base; },
+
+      variants: [
+        { key: 'inmun', label: '인문계 · 예체능계',
+          areas: ['국어', '영어', '수학', '사회'],
+          areaNote: '국어 · 영어 · 수학 · 한국사 · 사회(역사 / 도덕 포함) 교과군 전 과목' },
+        { key: 'jayeon', label: '자연계',
+          areas: ['국어', '영어', '수학', '과학'],
+          areaNote: '국어 · 영어 · 수학 · 한국사 · 과학 교과군 전 과목 (한국사 외 사회 미반영)' },
+        { key: 'ku', label: '광역제 (KU자유전공학부)',
+          areas: ['국어', '영어', '수학', '사회', '과학'],
+          areaNote: '인문계 반영 성적(A)과 자연계 반영 성적(B) 중 우수한 쪽을 반영',
+          bestOf: ['inmun', 'jayeon'] }
+      ],
+
+      /* 한국사는 계열과 무관하게 반영한다. 나이스 교과 열에서도 교육과정 표에서도
+         한국사는 사회 교과군으로 잡히므로, 자연계에서 사회를 뺄 때 따로 살려 둔다. */
+      areaOk: function (it, spec) {
+        if (it.group === '한국사' || normSubj(it.subject) === '한국사') return true;
+        return spec.areas.indexOf(it.area) >= 0;
+      },
+
+      detail: [
+        { h: '적용 등급', get: function (it) { return it.convGrade; } },
+        { h: '기준점수', get: function (it) { return it.use; } }
+      ],
+
+      convert: function (it, spec) {
+        var g = null;
+        if (it.kind === 'career') {
+          /* 성취도만 산출되는 공통 · 일반선택 과목(과학탐구실험 등)은 요강이
+             변환 방법을 정하지 않았다 — 진로선택 규정을 끌어 쓰지 않고 뺀다. */
+          if (it.curr === 'common' || it.curr === 'general') {
+            it.reason = '성취도만 산출되는 ' +
+              (it.curr === 'common' ? '공통' : '일반선택') + '과목 (요강 미규정)';
+            return;
+          }
+          if (it.ach === 'A') {
+            g = 1;
+            it.basis = '성취도 A → 1등급';
+          } else if (it.ach === 'B' || it.ach === 'C') {
+            var d = it.rec.dist;
+            if (!d) {
+              it.reason = '성취도별 학생비율 없음';
+              it.warn = (it.warn ? it.warn + ' / ' : '') +
+                '진로선택 성취도 ' + it.ach + '는 성취도별 학생비율로 등급을 매기는데 ' +
+                '생기부에 비율이 없어 반영하지 못했습니다';
+              return;
+            }
+            var pct = it.ach === 'B' ? (d.B || 0) + (d.C || 0) : (d.C || 0);
+            g = kuRatioGrade(pct);
+            it.ratioPct = pct;
+            it.basis = '성취도 ' + it.ach + ' · 등급비율 ' +
+                       (Math.round(pct * 10) / 10) + '% → ' + g + '등급';
+          } else {
+            it.reason = '성취도 ' + it.ach + ' 환산 기준 없음';
+            it.warn = (it.warn ? it.warn + ' / ' : '') +
+              '요강은 진로선택 성취도를 A · B · C로만 규정합니다 — 확인 필요';
+            return;
+          }
+        } else {
+          if (!(it.grade >= 1 && it.grade <= 9)) { it.reason = '석차등급 없음'; return; }
+          g = it.grade;
+          it.basis = g + '등급';
+        }
+        it.convGrade = g;
+        it.use = spec.gradeConv[g - 1];
+      },
+
+      specTables: function (sp) {
+        var rows = [];
+        for (var g = 1; g <= 9; g++)
+          rows.push([{ v: g, grade: g }, { v: sp.gradeConv[g - 1], num: true }]);
+        var RLABEL = ['100% 이상', '96% 이상 ~ 100% 미만', '89% 이상 ~ 96% 미만',
+                      '77% 이상 ~ 89% 미만', '60% 이상 ~ 77% 미만', '40% 이상 ~ 60% 미만',
+                      '23% 이상 ~ 40% 미만', '11% 이상 ~ 23% 미만', '11% 미만'];
+        return [
+          { title: '등급별 기준점수', head: ['석차등급', '기준점수'], rows: rows },
+          { title: '계열별 반영교과',
+            head: ['계열', '국어', '영어', '수학', '한국사', '사회', '과학'],
+            rows: [
+              [{ v: '인문계 · 예체능계', strong: sp.variantKey === 'inmun' },
+               { v: '○' }, { v: '○' }, { v: '○' }, { v: '○' }, { v: '○' }, { v: '–' }],
+              [{ v: '자연계', strong: sp.variantKey === 'jayeon' },
+               { v: '○' }, { v: '○' }, { v: '○' }, { v: '○' }, { v: '–' }, { v: '○' }],
+              [{ v: '광역제 (KU자유전공학부)', strong: sp.variantKey === 'ku' },
+               { v: '인문계 성적(A)과 자연계 성적(B) 중 우수한 쪽', span: 6 }]
+            ] },
+          { title: '진로선택 — 성취도별 등급비율로 석차등급 부여',
+            head: ['성취도', '등급비율'],
+            rows: [
+              [{ v: 'A', strong: true }, { v: '학생비율과 관계없이 1등급' }],
+              [{ v: 'B', strong: true }, { v: 'B의 학생비율 + C의 학생비율' }],
+              [{ v: 'C', strong: true }, { v: 'C의 학생비율' }]
+            ] },
+          { title: '등급비율에 따른 석차등급',
+            head: ['등급비율', '석차등급'],
+            rows: RLABEL.map(function (t, i) {
+              return [{ v: t }, { v: i + 1, grade: i + 1 }]; }) },
+          { title: '이수단위 ' + sp.creditFloor.units + '단위 이하일 때 감점',
+            head: ['반영 이수단위', '적용 계수'],
+            rows: [70, 60, 50, 40, 30].map(function (u) {
+              return [{ v: u + '단위' },
+                      { v: '× ' + (sp.creditFloor.coef -
+                           (sp.creditFloor.units - u) * sp.creditFloor.per).toFixed(3) }];
+            }).concat([[{ v: '71단위 이상' }, { v: '감점 없음 (× 1)' }]]) }
+        ];
+      }
     }
   };
 
@@ -1170,6 +1300,23 @@
     return 9;
   }
 
+  /* ═══════════════ 등급비율 → 석차등급 (건국대 진로선택) ═══════════════
+     진로선택 과목은 생기부의 성취도별 학생비율로 석차등급을 매긴다 (요강 명시).
+       성취도 A → 학생비율과 관계없이 1등급
+       성취도 B → 등급비율 = B의 학생비율 + C의 학생비율
+       성취도 C → 등급비율 = C의 학생비율
+     등급비율은 「나보다 아래(같은 등급 포함)에 있는 누적 비율」이라 값이 클수록 상위다.
+     [하한 %, 등급] — 위에서부터 처음 만족하는 칸. */
+  var KU_RATIO_GRADE = [
+    [100, 1], [96, 2], [89, 3], [77, 4], [60, 5], [40, 6], [23, 7], [11, 8], [4, 9]
+  ];
+  function kuRatioGrade(pct) {
+    if (pct === null || pct === undefined || !isFinite(pct)) return null;
+    for (var i = 0; i < KU_RATIO_GRADE.length; i++)
+      if (pct >= KU_RATIO_GRADE[i][0]) return KU_RATIO_GRADE[i][1];
+    return 9;                                // 4% 미만도 최하 구간과 같이 9등급
+  }
+
   /* ═══════════════ 체육·예술 교과 성취도 평균 ═══════════════
      교과 점수에는 안 들어가지만 동점자 처리에 쓰이는 보조 지표다.
      (가천대 동점자 처리 1단계 — 성취도 배점 A 3점 · B 2점 · C 1점)
@@ -1197,6 +1344,30 @@
 
   /* ═══════════════ 학생 1명 · 대학 1곳 산출 ═══════════════ */
   function computeUniv(records, spec, opt) {
+    /* 반영교과가 통째로 다른 두 산출을 각각 내고 유리한 쪽을 채택한다
+       (건국대 광역제 — 인문계 반영 성적 A와 자연계 반영 성적 B 중 우수한 성적).
+       배점만 갈리는 'best' 모드와 달리 반영과목 자체가 달라 규격째 다시 계산한다. */
+    if (spec.bestOf && spec.bestOf.length) {
+      var subs = spec.bestOf.map(function (k) {
+        var sp = resolve(spec.id, k);
+        var o = computeUniv(records, sp, opt);
+        o.key = k; o.label = sp.variant.label; o.subSpec = sp;
+        return o;
+      });
+      var bestSub = null;
+      subs.forEach(function (o) {
+        if (o.score !== null && (!bestSub || o.score > bestSub.score)) bestSub = o;
+      });
+      subs.forEach(function (o) { o.chosen = !!(bestSub && o.key === bestSub.key); });
+      var pick = bestSub || subs[0];
+      var merged = {};
+      Object.keys(pick).forEach(function (k) { merged[k] = pick[k]; });
+      merged.subs = subs;
+      merged.bestKey = bestSub ? bestSub.key : null;
+      merged.bestLabel = bestSub ? bestSub.label : null;
+      return merged;
+    }
+
     /* 전남대 소인수 학교 규정은 「전 과목에서 석차등급이 없고 표준편차가 표기된 경우」다.
        한 과목이라도 석차등급이 있으면 일반 학교이므로, 석차등급 없는 소인수·공동교육과정
        과목은 요강대로 그냥 반영하지 않는다 (Z 변환을 쓰지 않는다). */
@@ -1415,6 +1586,19 @@
       out.weighted = num; out.credits = den;
       out.base = spec.trunc ? truncDiv(num, den, spec.trunc) : (den > 0 ? num / den : null);
       out.score = out.base;
+      /* 기준점수 가중평균에 척도 배수를 곱한다 (건국대 × 100 → 1,000점 척도) */
+      if (spec.scoreMul && out.score !== null) out.score *= spec.scoreMul;
+      /* 반영 이수단위가 기준에 못 미치면 계수를 곱해 깎는다.
+         요강: 「점수 × 0.96 − (70단위에 미달하는 단위 수 × 0.002)」 —
+         0.96과 0.002를 같은 계수로 보고 점수 × {0.96 − 미달단위 × 0.002}로 읽었다. */
+      if (spec.creditFloor && out.score !== null) {
+        var cf = spec.creditFloor;
+        out.creditShort = den <= cf.units ? cf.units - den : 0;
+        out.creditCoef = den <= cf.units ? cf.coef - out.creditShort * cf.per : 1;
+        if (out.creditCoef < 0) out.creditCoef = 0;
+        out.scoreBeforeFloor = out.score;
+        out.score *= out.creditCoef;
+      }
       /* 이수학점 가산점 — 반영교과 안에서 이수한 모든 과목의 학점 합에 비례한다.
          환산점수를 못 매기는 과목(이수 P 등)도 '이수과목'이라 학점 합에는 들어간다.
          가산점 때문에 총점이 척도 최고점을 넘을 수 있다 (요강 명시). */
@@ -1627,7 +1811,8 @@
     abcByGrade: abcByGrade, abcByRaw: abcByRaw, abcByAch: abcByAch,
     yonseiCareerABC: yonseiCareerABC,
     YS_Z_TABLE: YS_Z_TABLE, ysPercentile: ysPercentile,
-    CNU_Z_GRADE: CNU_Z_GRADE, cnuZGrade: cnuZGrade, roundHalfUp: roundHalfUp
+    CNU_Z_GRADE: CNU_Z_GRADE, cnuZGrade: cnuZGrade, roundHalfUp: roundHalfUp,
+    KU_RATIO_GRADE: KU_RATIO_GRADE, kuRatioGrade: kuRatioGrade
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.UnivCore = api;
