@@ -9,7 +9,7 @@ function T(n, c, d) { if (c) { pass++; console.log('  ✓ ' + n); } else { fail+
 
 (async () => {
   const browser = await chromium.launch(process.env.CHROME_PATH ? { executablePath: process.env.CHROME_PATH } : {});
-  const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+  const page = await browser.newPage({ acceptDownloads: true, viewport: { width: 1440, height: 1000 } });
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('dialog', d => d.accept('안 1'));
@@ -54,14 +54,30 @@ function T(n, c, d) { if (c) { pass++; console.log('  ✓ ' + n); } else { fail+
   T('기준선(1차만) 대비 표시', t.includes('기준선 대비 바뀐 학생'));
   // 분포 합계 = 100
   const sum = await page.evaluate(() => {
-    const rows = [...document.querySelectorAll('#simOut .card:nth-child(2) table.cmp tr')].slice(1);
+    const rows = [...[...document.querySelectorAll('#simOut .card')].find(c => c.innerText.startsWith('성취도 분포')).querySelectorAll('table.cmp tr')].slice(1);
     return rows.reduce((a, r) => a + parseInt((r.children[3].innerText.match(/(\d+)명/) || [0, 0])[1], 10), 0);
   });
   T('현재 분포 합계 100명', sum === 100, 'sum=' + sum);
+  // 분할 민감도: 수행 기준, +1 상태에서 −1 행 클릭 → 이동 0 (최종 A/B 79.62)
+  t = await txt();
+  T('민감도 표 표시', t.includes('분할 민감도') && (await page.$$('#simOut tr[data-sweep]')).length === 11);
+  await page.click('#simOut tr[data-sweep="-1"]');
+  t = await txt();
+  T('민감도 행 클릭 → 적용 (79.62)', t.includes('79.62'));
+  T('분할 출처 표시', (await page.$eval('#simCtl .cbox[data-id="c1"]', e => e.innerText)).includes('회의 확정')
+    && (await page.$eval('#simCtl .cbox[data-id="p1"]', e => e.innerText)).includes('직접 입력(가상)'));
+  // 엑셀 내보내기
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#simOut button[data-out="xlsx"]')]);
+  // 헤드리스 셸은 한글 download 파일명을 'download'로 바꿈(일반 Chrome·Edge·Safari는 그대로 저장) → 내용으로 검증
+  console.log('    (내보낸 파일명: ' + dl.suggestedFilename() + ')');
+  const XLSX = require('./xlsx.escaped.js');
+  const wb = XLSX.read(require('fs').readFileSync(await dl.path()));
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets['학생별'], { header: 1 });
+  T('엑셀 학생별 100명 + 성취도·등급 열', rows.length === 101 && rows[0].includes('성취도') && rows[0].includes('석차등급'), rows[0] && rows[0].join(','));
   // 9등급 전환 → 교차표 9열
   await page.click('#simCtl button[data-act="gsys"][data-v="9"]');
   t = await txt();
-  T('9등급 교차표', t.includes('9등급') && (await page.$$eval('#simOut .card:nth-child(3) table.cmp tr:first-child th', a => a.length)) === 11);
+  T('9등급 교차표', t.includes('9등급') && (await page.evaluate(() => [...document.querySelectorAll('#simOut .card')].find(c => c.innerText.startsWith('성취도 × 석차등급')).querySelectorAll('table.cmp tr:first-child th').length)) === 11);
   // 학생 클릭 → 역산
   await page.click('#simOut tr[data-key="1-1"]');
   t = await txt();

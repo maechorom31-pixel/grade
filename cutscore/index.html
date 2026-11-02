@@ -190,6 +190,28 @@ table.cmp td .bar{display:inline-block;height:7px;border-radius:4px;vertical-ali
 .tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:.8rem;color:var(--muted)}
 .tools select{font:inherit;font-size:.8rem;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
 #simOut .card{overflow-x:auto}
+table.cmp tr.pick{cursor:pointer}
+table.cmp tr.pick:hover td{background:var(--bg)}
+table.cmp tr.now td{background:var(--wash);font-weight:700}
+.src{font-size:.68rem;font-weight:700;border-radius:4px;padding:1px 6px;margin-left:4px}
+.src.pred{color:var(--muted);background:var(--bg);border:1px dashed var(--faint)}
+.src.real{color:var(--ok);background:var(--okbg)}
+.src.none{color:var(--warn);background:var(--warnbg)}
+.guide{font-size:.82rem;color:var(--muted);margin:0 0 16px}
+.guide summary{cursor:pointer;color:var(--ink);font-weight:700}
+.guide ol{margin:8px 0 0 20px}
+.guide li{margin:3px 0}
+.warnline{font-size:.8rem;color:var(--warn);background:var(--warnbg);border-radius:8px;padding:7px 12px;margin-bottom:12px}
+@media print{
+  header nav,.simctl,.tools,.btnrow,.guide,#saveState{display:none!important}
+  body{background:#fff;font-size:12px}
+  .sim{display:block}
+  .card{break-inside:avoid;border-color:#ddd}
+  .stu{max-height:none;overflow:visible}
+  details.editbox:not([open]){display:none}
+  section.tab{display:none!important}
+  section.tab.on{display:block!important}
+}
 .sim>*{min-width:0}
 .cutin>div{min-width:0}
 @media (max-width:860px){.sim{grid-template-columns:minmax(0,1fr)}.simctl{position:static;max-height:none}}
@@ -205,6 +227,7 @@ table.cmp td .bar{display:inline-block;height:7px;border-radius:4px;vertical-ali
   </div>
   <p class="premise">지필고사 Angoff 분할점수 예측과 회의 후 실제 분할점수, 수행평가 분할점수를 반영비율로 합성해
   학기말 성취도 분포를 단계적으로(1차 → 1+2차 → 학기말) 시뮬레이션합니다.
+  「시뮬레이션」 탭에서는 수행 가정점수·분할점수를 바꿔 가며 최종 분할과 학생별 성취도·석차등급을 바로 비교할 수 있습니다.
   나이스 교과목별·학급별 일람표(전체 반 성적)와 수행평가 일람표를 끌어다 놓으면 점수가 자동 적재되고,
   기존 분할점수 종합관리 엑셀(v6)을 그대로 불러올 수도 있습니다.</p>
   <nav>
@@ -262,6 +285,14 @@ table.cmp td .bar{display:inline-block;height:7px;border-radius:4px;vertical-ali
 </section>
 
 <section class="tab" id="tab-sim">
+  <details class="guide"><summary>사용 순서</summary><ol>
+    <li>「반영비율·분할점수」 탭에서 비율을 맞추고, 1차 분할을 Angoff 정답률(예측) 또는 회의 확정값으로 넣습니다.</li>
+    <li>왼쪽에서 반영 범위를 고릅니다. 2차가 없는 학기는 2차 체크를 끄면 됩니다.</li>
+    <li>아직 없는 점수는 가정합니다 — 수행은 「전원 같은 점수」(예: 90), 2차는 「1차 점수 그대로 ± n」.</li>
+    <li>수행·2차 분할을 바꾸면 최종 분할과 분포가 바로 바뀝니다. 「분할 민감도」 표에서 후보값을 한눈에 비교하고, 행을 누르면 적용됩니다.</li>
+    <li>마음에 드는 안은 「현재 조합 저장」으로 남겨 비교표에서 나란히 봅니다. 「현재 조합을 기준선으로」를 누르면 그 안 대비 변화가 표시됩니다.</li>
+    <li>협의회 자료는 결과 위 「엑셀로 내보내기」 또는 「인쇄」를 씁니다. 모든 계산과 저장은 이 컴퓨터 안에서만 이뤄집니다.</li>
+  </ol></details>
   <div id="simBody"><div class="empty">점수 자료를 먼저 적재해 주세요.</div></div>
 </section>
 
@@ -1104,7 +1135,7 @@ function renderResult() {
   h += '<table class="cuts"><tr><th></th>' + BOUND.map(function (b) { return '<th>' + b + '</th>'; }).join('') + '</tr>'
     + '<tr><td class="rowlbl">누적 분할점수 (자동)</td>'
     + P.cum.cuts.map(function (v) { return '<td class="num used">' + fmt(v) + '</td>'; }).join('') + '</tr></table>';
-  h += '<p class="footnote">학기말 점수는 요소별 점수의 비율 가중합을 소수 첫째 자리에서 반올림한 정수이며, '
+  h += '<p class="footnote">수행 가정점수·분할을 바꿔 보거나 학생별 성취도·석차등급을 보려면 「시뮬레이션」 탭을 쓰세요. 학기말 점수는 요소별 점수의 비율 가중합을 소수 첫째 자리에서 반올림한 정수이며, '
     + '수행 점수가 없으면 가정 점수, 지필 점수가 없으면 입력된 요소만으로 재정규화합니다.</p></div>';
 
   // 모니터링
@@ -1226,6 +1257,22 @@ function resolveCuts(c, o) {
   });
 }
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+/* 분할 출처: 예측(Angoff) / 실제(회의 확정·입력) / 고정 / 직접 */
+function srcOfUsed(c) {
+  var anyActual = cutsAny(c.actual);
+  if (anyActual) return c.kind === 'exam' ? ['real', '회의 확정'] : ['real', '분할 탭 입력'];
+  if (c.kind === 'exam' && cutsAny(K.angoffCuts(c.angoff || []))) return ['pred', 'Angoff 예측'];
+  return ['none', '없음'];
+}
+function cutSrcTag(c, o) {
+  var t;
+  if (o.cut === 'fixed') t = ['real', '고정분할'];
+  else if (o.cut === 'custom') t = ['pred', '직접 입력(가상)'];
+  else if (o.cut === 'first') { var f = firstExamComp(); t = f ? srcOfUsed(f) : ['none', '없음']; t = [t[0], '1차 ' + t[1]]; }
+  else t = srcOfUsed(c);
+  var sh = num(o.shift) || 0;
+  return '<span class="src ' + t[0] + '">' + t[1] + (sh ? (sh > 0 ? ' +' : ' ') + fmt(sh, 2) : '') + '</span>';
+}
 
 function simCompute(cfg, gradeSys) {
   var f = firstExamComp();
@@ -1303,6 +1350,7 @@ function renderSim() {
   renderSimCtl(); renderSimOut();
 }
 var CUTLBL = ['A/B', 'B/C', 'C/D', 'D/E', '미도달'];
+function sys5() { return K.LABELS.slice(0, 6); }
 function seg(act, cur, opts) {
   return '<span class="seg">' + opts.map(function (o) {
     return '<button data-act="' + act + '" data-v="' + o[0] + '"' + (String(cur) === String(o[0]) ? ' class="on"' : '') + '>' + o[1] + '</button>';
@@ -1347,6 +1395,7 @@ function renderSimCtl() {
       }).join('') + '</select></div><div class="ln">전체 이동'
       + ' <button class="stp" data-act="shift" data-v="-1">−1</button><span class="num" style="min-width:30px;text-align:center">'
       + ((num(o.shift) || 0) > 0 ? '+' : '') + fmt(num(o.shift) || 0, 2) + '</span><button class="stp" data-act="shift" data-v="1">+1</button></div>';
+    h += '<div class="ln">현재 출처 ' + cutSrcTag(c, o) + '</div>';
     h += '<div class="cutin">' + CUTLBL.map(function (L, k) {
       return '<div><label>' + L + '</label><input class="cell" data-act="cutv" data-k="' + k + '" type="number" step="0.5" value="' + (cuts[k] === null ? '' : cuts[k]) + '"></div>';
     }).join('') + '</div>';
@@ -1449,6 +1498,11 @@ function renderSimOut() {
   var GN = S.gradeSys;
   var h = '';
 
+  // ⓪ 경고·도구
+  var rsum = 0; state.comps.forEach(function (c) { rsum += num(c.ratio) || 0; });
+  if (Math.abs(rsum - 100) > 1e-9) h += '<div class="warnline">반영비율 합계가 ' + fmt(rsum, 1) + '입니다. 「반영비율·분할점수」 탭에서 100으로 맞추세요.</div>';
+  if (!cur.parts.length) h += '<div class="warnline">반영 요소가 하나도 선택되지 않았습니다. 왼쪽에서 요소를 체크하세요.</div>';
+  h += '<div class="btnrow" style="margin:0 0 14px"><button class="act small" data-out="xlsx">엑셀로 내보내기</button><button class="act small" data-out="print">인쇄</button></div>';
   // ① 요약
   h += '<div class="card"><h2>현재 조합<span class="sub">' + esc(cfgLabel(S.cfg)) + '</span></h2>';
   var aPct = cur.dist.n ? cur.dist.counts.A / cur.dist.n * 100 : null;
@@ -1472,6 +1526,33 @@ function renderSimOut() {
   if (cur.noCut.length) h += '<p class="footnote" style="color:var(--warn)">' + cur.noCut.map(function (p) { return esc(p.c.name); }).join(', ') + '에 분할점수가 없어 최종 분할 계산에서 빠졌습니다.</p>';
   h += '<p class="footnote">점수: 반영 요소만으로 비율을 재정규화해 가중평균(요소 2개 이상이면 정수 반올림). 기울임 점수는 가정값입니다. 최종 분할 = 요소별 분할의 비율 가중평균.</p></div>';
 
+  // ①-2 분할 민감도: 한 요소의 분할을 −5~+5 이동했을 때
+  var sweepable = cur.parts.filter(function (p) { return cutsAny(p.cuts); });
+  if (sweepable.length && cur.parts.length > 1) {
+    var sid = S.view.sweep;
+    var sp = sweepable.filter(function (p) { return p.c.id === sid; })[0]
+      || sweepable.filter(function (p) { return p.c !== f; })[0] || sweepable[0];
+    var so = S.cfg.comps[sp.c.id], sh0 = num(so.shift) || 0;
+    h += '<div class="card"><h2>분할 민감도<span class="sub">한 요소의 분할을 전체 이동했을 때 · 행을 누르면 적용</span></h2>'
+      + '<div class="tools">움직일 요소 <select data-v="sweep">' + sweepable.map(function (p) {
+          return '<option value="' + p.c.id + '"' + (p === sp ? ' selected' : '') + '>' + esc(p.c.name) + '</option>';
+        }).join('') + '</select></div>';
+    h += '<table class="cmp"><tr><th>이동</th><th>' + esc(sp.c.name) + ' A/B</th><th>최종 A/B</th><th>최종 B/C</th>'
+      + sys5().map(function (L) { return '<th>' + L + '</th>'; }).join('') + '<th>A 비율</th></tr>';
+    for (var d = -5; d <= 5; d++) {
+      var cc = clone(S.cfg);
+      cc.comps[sp.c.id].shift = Math.round((sh0 + d) * 100) / 100;
+      var rr = d === 0 ? cur : simCompute(cc, GN);
+      var pc = rr.parts.filter(function (p) { return p.c.id === sp.c.id; })[0];
+      var ap = rr.dist.n ? rr.dist.counts.A / rr.dist.n * 100 : null;
+      h += '<tr class="pick' + (d === 0 ? ' now' : '') + '" data-sweep="' + d + '"><td class="num">' + (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + (d === 0 ? ' (현재)' : '') + '</td>'
+        + '<td class="num">' + fmt(pc ? pc.cuts[0] : null) + '</td><td class="num">' + fmt(rr.cum.cuts[0]) + '</td><td class="num">' + fmt(rr.cum.cuts[1]) + '</td>'
+        + sys5().map(function (L) { return '<td class="num">' + rr.dist.counts[L] + '</td>'; }).join('')
+        + '<td class="num"' + (ap !== null && ap > state.th.aMax + 1e-9 ? ' style="color:var(--warn)"' : '') + '>' + fmt(ap, 1) + '%</td></tr>';
+    }
+    h += '</table><p class="footnote">빨간 A 비율은 모니터링 상한(' + state.th.aMax + '%)을 넘는 값입니다. 다른 요소는 현재 설정 그대로 둡니다.</p></div>';
+  }
+
   // ② 분포
   var sys = K.LABELS.filter(function (L, i) {
     return cur.dist.system.indexOf(L) >= 0 || base.dist.system.indexOf(L) >= 0;
@@ -1479,7 +1560,7 @@ function renderSimOut() {
   if (!sys.length) sys = K.LABELS.slice(0, 5);
   var maxC = 1;
   sys.forEach(function (L) { maxC = Math.max(maxC, cur.dist.counts[L], base.dist.counts[L]); });
-  h += '<div class="card"><h2>성취도 분포<span class="sub">기준선 → 현재</span></h2><table class="cmp">'
+  h += '<div class="card"><h2>성취도 분포<span class="sub">기준선 → 현재 · 회색 막대 = 기준선, 색 막대 = 현재</span></h2><table class="cmp">'
     + '<tr><th class="l">성취도</th><th>최종 분할</th><th>기준선</th><th>현재</th><th>변화</th><th class="l" style="width:40%"></th></tr>';
   sys.forEach(function (L, i) {
     var c = cur.dist.counts[L], b = base.dist.counts[L];
@@ -1586,6 +1667,39 @@ function renderSimOut() {
   document.getElementById('simOut').innerHTML = h;
 }
 
+/* 엑셀 내보내기: 요약·학생별 (현재 조합) */
+function exportSim() {
+  var S = state.sim, f = firstExamComp(), GN = S.gradeSys;
+  var cur = simCompute(S.cfg, GN);
+  var others = cur.parts.filter(function (p) { return p.c !== f; });
+  var sum = [['조합', cfgLabel(S.cfg)], ['석차등급', GN + '등급'], ['산출 대상', cur.n], ['환산 평균', cur.avg === null ? '' : Math.round(cur.avg * 10) / 10], [],
+             ['분할점수', '비율'].concat(CUTLBL)];
+  cur.parts.forEach(function (p) { sum.push([p.c.name, p.ratio].concat(p.cuts.map(function (v) { return v === null ? '' : v; }))); });
+  sum.push(['최종(가중평균)', cur.cum.totalRatio].concat(cur.cum.cuts.map(function (v) { return v === null ? '' : Math.round(v * 100) / 100; })));
+  sum.push([]); sum.push(['성취도', '인원', '비율(%)']);
+  cur.dist.system.forEach(function (L) { sum.push([L, cur.dist.counts[L], cur.dist.n ? Math.round(cur.dist.counts[L] / cur.dist.n * 1000) / 10 : 0]); });
+  var head = ['반', '번호', '이름', (f ? f.name : '1차') + ' 점수', '1차 성취도', '1차 등급']
+    .concat(others.map(function (p) { return p.c.name + (p.o.src === 'actual' ? '' : ' (가정)'); }))
+    .concat(['환산점수', '성취도', '석차등급', '위 등급까지']);
+  var rows = [head];
+  cur.rows.forEach(function (r) {
+    rows.push([r.ban, r.no, r.name, r.s1 === null ? '' : r.s1, r.a1 || '', r.r1 || '']
+      .concat(others.map(function (p) { var v = r.vals[cur.parts.indexOf(p)].v; return v === null ? '' : v; }))
+      .concat([r.final === null ? '' : r.final, r.ach || '', r.rank || '', r.up === null ? '' : r.up]));
+  });
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sum), '요약');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '학생별');
+  var d = new Date();
+  var name = '성취도시뮬레이션_' + (d.getMonth() + 1) + '월' + d.getDate() + '일.xlsx';
+  var blob = new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })],
+                      { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
 /* 역산: 가정값을 쓰는 요소(없으면 1차 외 요소)를 하나씩 변수로 두고 나머지는 현재 값으로 고정 */
 function needText(r, cur) {
   var f = firstExamComp();
@@ -1619,6 +1733,22 @@ function bindSimOut() {
     if (t.tagName === 'SELECT' && t.dataset.v) { state.sim.view[t.dataset.v] = t.value; save(); renderSimOut(); }
   });
   out.addEventListener('click', function (e) {
+    var bt = e.target.closest('[data-out]');
+    if (bt) { if (bt.dataset.out === 'xlsx') exportSim(); else window.print(); return; }
+    var sw = e.target.closest('tr[data-sweep]');
+    if (sw) {
+      var d = Number(sw.dataset.sweep);
+      if (!d) return;
+      var S = state.sim, f = firstExamComp();
+      var sweepable = simCompute(S.cfg, S.gradeSys).parts.filter(function (p) { return cutsAny(p.cuts); });
+      var sp = sweepable.filter(function (p) { return p.c.id === S.view.sweep; })[0]
+        || sweepable.filter(function (p) { return p.c !== f; })[0] || sweepable[0];
+      if (!sp) return;
+      var o = S.cfg.comps[sp.c.id];
+      o.shift = Math.round(((num(o.shift) || 0) + d) * 100) / 100;
+      save(); renderSimCtl(); renderSimOut();
+      return;
+    }
     var tr = e.target.closest('tr[data-key]');
     if (!tr) return;
     simSel = simSel === tr.dataset.key ? null : tr.dataset.key;
