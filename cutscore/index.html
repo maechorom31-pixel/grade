@@ -143,6 +143,79 @@ table.grid td.no{color:var(--faint);font-size:.72rem;text-align:right;padding-ri
 .field{display:inline-flex;flex-direction:column;gap:2px;margin-right:18px;margin-bottom:8px}
 .field label{font-size:.72rem;color:var(--muted)}
 .field input,.field select{font:inherit;font-size:.9rem;padding:6px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+/* ── 시뮬레이션 ── */
+.sim{display:grid;grid-template-columns:350px minmax(0,1fr);gap:20px;align-items:start}
+.simctl{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px 16px 6px}
+.simctl h3{font-size:.8rem;font-weight:700;color:var(--muted);margin:2px 0 8px}
+.ctlrow{margin-bottom:14px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{font:inherit;font-size:.78rem;border:0;background:var(--surface);color:var(--muted);padding:5px 10px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button.on{background:var(--wash);color:var(--accent-ink);font-weight:700}
+.cbox{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px}
+.cbox.off{opacity:.55}
+.cbox .hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cbox .hd b{font-size:.9rem}
+.cbox .hd .rt{font-size:.74rem;color:var(--muted)}
+.cbox .ln{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;font-size:.78rem;color:var(--muted)}
+.cbox select{font:inherit;font-size:.78rem;padding:3px 5px;border:1px solid var(--line);border-radius:6px;background:var(--surface);color:var(--ink)}
+.cbox input.cell{width:58px;padding:3px 5px;font-size:.8rem}
+.cutin{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:6px}
+.cutin label{font-size:.66rem;color:var(--faint);text-align:center}
+.cutin input.cell{width:100%;text-align:center}
+.cutin .ro{font-size:.8rem;text-align:center;font-variant-numeric:tabular-nums;color:var(--ink);padding:3px 0}
+.stp{font:inherit;font-size:.74rem;border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:2px 8px;cursor:pointer;color:var(--ink)}
+.quick{display:flex;gap:4px;flex-wrap:wrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.chip{font:inherit;font-size:.76rem;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:3px 10px;cursor:pointer}
+.chip.base{border-color:var(--accent);color:var(--accent-ink)}
+.chip .x{color:var(--faint);margin-left:4px}
+.delta{font-size:.76rem;font-weight:700;margin-left:4px}
+.delta.up{color:var(--ok)} .delta.dn{color:var(--warn)} .delta.z{color:var(--faint);font-weight:400}
+table.cmp{border-collapse:collapse;font-size:.84rem;width:100%}
+table.cmp th{font-weight:600;color:var(--muted);font-size:.74rem;padding:5px 8px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
+table.cmp td{padding:5px 8px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+table.cmp td.l,table.cmp th.l{text-align:left}
+table.cmp tr:last-child td{border-bottom:0}
+table.cmp tr.cur td{font-weight:700}
+table.cmp td .bar{display:inline-block;height:7px;border-radius:4px;vertical-align:1px;margin-right:6px}
+.gtag{display:inline-block;min-width:24px;font-weight:700;border-radius:5px;padding:0 5px;font-size:.78rem}
+.stu{max-height:560px;overflow:auto}
+.stu table.cmp td{padding:4px 7px}
+.stu tr.click{cursor:pointer}
+.stu tr.click:hover td{background:var(--bg)}
+.stu tr.sel td{background:var(--wash)}
+.stu td.as{color:var(--faint);font-style:italic}
+.need{font-size:.8rem;color:var(--ink);background:var(--bg);text-align:left!important;white-space:normal!important;padding:8px 12px!important}
+.tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px;font-size:.8rem;color:var(--muted)}
+.tools select{font:inherit;font-size:.8rem;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--surface)}
+#simOut .card{overflow-x:auto}
+table.cmp tr.pick{cursor:pointer}
+table.cmp tr.pick:hover td{background:var(--bg)}
+table.cmp tr.now td{background:var(--wash);font-weight:700}
+.src{font-size:.68rem;font-weight:700;border-radius:4px;padding:1px 6px;margin-left:4px}
+.src.pred{color:var(--muted);background:var(--bg);border:1px dashed var(--faint)}
+.src.real{color:var(--ok);background:var(--okbg)}
+.src.none{color:var(--warn);background:var(--warnbg)}
+.guide{font-size:.82rem;color:var(--muted);margin:0 0 16px}
+.guide summary{cursor:pointer;color:var(--ink);font-weight:700}
+.guide ol{margin:8px 0 0 20px}
+.guide li{margin:3px 0}
+.warnline{font-size:.8rem;color:var(--warn);background:var(--warnbg);border-radius:8px;padding:7px 12px;margin-bottom:12px}
+@media print{
+  header nav,.simctl,.tools,.btnrow,.guide,#saveState{display:none!important}
+  body{background:#fff;font-size:12px}
+  .sim{display:block}
+  .card{break-inside:avoid;border-color:#ddd}
+  .stu{max-height:none;overflow:visible}
+  details.editbox:not([open]){display:none}
+  section.tab{display:none!important}
+  section.tab.on{display:block!important}
+}
+.sim>*{min-width:0}
+.cutin>div{min-width:0}
+@media (max-width:860px){.sim{grid-template-columns:minmax(0,1fr)}.simctl{position:static;max-height:none}}
+@media (max-width:600px){.wrap{padding:0 16px}nav{gap:16px;overflow-x:auto}}
 </style>
 </head>
 <body>
@@ -154,12 +227,14 @@ table.grid td.no{color:var(--faint);font-size:.72rem;text-align:right;padding-ri
   </div>
   <p class="premise">지필고사 Angoff 분할점수 예측과 회의 후 실제 분할점수, 수행평가 분할점수를 반영비율로 합성해
   학기말 성취도 분포를 단계적으로(1차 → 1+2차 → 학기말) 시뮬레이션합니다.
+  「시뮬레이션」 탭에서는 수행 가정점수·분할점수를 바꿔 가며 최종 분할과 학생별 성취도·석차등급을 바로 비교할 수 있습니다.
   나이스 교과목별·학급별 일람표(전체 반 성적)와 수행평가 일람표를 끌어다 놓으면 점수가 자동 적재되고,
   기존 분할점수 종합관리 엑셀(v6)을 그대로 불러올 수도 있습니다.</p>
   <nav>
     <button class="on" data-tab="data">데이터</button>
     <button data-tab="cuts">반영비율·분할점수</button>
     <button data-tab="result">결과</button>
+    <button data-tab="sim">시뮬레이션</button>
   </nav>
 </header>
 
@@ -207,6 +282,18 @@ table.grid td.no{color:var(--faint);font-size:.72rem;text-align:right;padding-ri
 
 <section class="tab" id="tab-result">
   <div id="resultBody"><div class="empty">점수 자료를 먼저 적재해 주세요.</div></div>
+</section>
+
+<section class="tab" id="tab-sim">
+  <details class="guide"><summary>사용 순서</summary><ol>
+    <li>「반영비율·분할점수」 탭에서 비율을 맞추고, 1차 분할을 Angoff 정답률(예측) 또는 회의 확정값으로 넣습니다.</li>
+    <li>왼쪽에서 반영 범위를 고릅니다. 2차가 없는 학기는 2차 체크를 끄면 됩니다.</li>
+    <li>아직 없는 점수는 가정합니다 — 수행은 「전원 같은 점수」(예: 90), 2차는 「1차 점수 그대로 ± n」.</li>
+    <li>수행·2차 분할을 바꾸면 최종 분할과 분포가 바로 바뀝니다. 「분할 민감도」 표에서 후보값을 한눈에 비교하고, 행을 누르면 적용됩니다.</li>
+    <li>마음에 드는 안은 「현재 조합 저장」으로 남겨 비교표에서 나란히 봅니다. 「현재 조합을 기준선으로」를 누르면 그 안 대비 변화가 표시됩니다.</li>
+    <li>협의회 자료는 결과 위 「엑셀로 내보내기」 또는 「인쇄」를 씁니다. 모든 계산과 저장은 이 컴퓨터 안에서만 이뤄집니다.</li>
+  </ol></details>
+  <div id="simBody"><div class="empty">점수 자료를 먼저 적재해 주세요.</div></div>
 </section>
 
 </main>
@@ -331,9 +418,63 @@ table.grid td.no{color:var(--faint);font-size:.72rem;text-align:right;padding-ri
              max: Math.max.apply(null, xs), min: Math.min.apply(null, xs) };
   }
 
+  /* 석차등급 (상대평가) — 등급 시뮬레이터 computeGrades 이식.
+     entries: [{id, score}] (score null 제외), ratios: 누적비율 배열.
+     동석차가 등급 경계에 걸친 경우에만 중간석차 백분율로 판정 */
+  var RATIOS5 = [0.10, 0.34, 0.66, 0.90, 1.00];
+  var RATIOS9 = [0.04, 0.11, 0.23, 0.40, 0.60, 0.77, 0.89, 0.96, 1.00];
+  function rankGrades(entries, ratios) {
+    var R = ratios || RATIOS5, G = R.length;
+    var list = entries.filter(function (e) { return num(e.score) !== null; });
+    var n = list.length;
+    var cuts = R.map(function (r, i) { return i === G - 1 ? n : Math.round(n * r); });
+    var sorted = list.slice().sort(function (a, b) { return num(b.score) - num(a.score); });
+    var byId = {};
+    function bandOf(pos) { for (var g = 0; g < G; g++) if (pos <= cuts[g]) return g + 1; return G; }
+    var i = 0;
+    while (i < sorted.length) {
+      var j = i;
+      while (j < sorted.length && num(sorted[j].score) === num(sorted[i].score)) j++;
+      var rank = i + 1, tie = j - i;
+      var first = bandOf(rank), last = bandOf(rank + tie - 1), grade = first;
+      var mid = rank + (tie - 1) / 2;
+      if (tie > 1 && first !== last) {
+        grade = G;
+        for (var k = 0; k < G; k++) if (mid / n * 100 <= R[k] * 100 + 1e-9) { grade = k + 1; break; }
+      }
+      for (var t = i; t < j; t++) byId[sorted[t].id] = { rank: rank, tie: tie, grade: grade };
+      i = j;
+    }
+    return { n: n, byId: byId };
+  }
+
+  /* 혼합 점수: 반영 요소만 비율 재정규화. 요소 1개면 원점수, 2개 이상이면 정수 반올림(v6 규정) */
+  function blendScore(vals, ratios) {
+    var sum = 0, usedR = 0, cnt = 0;
+    vals.forEach(function (v, i) {
+      v = num(v);
+      var r = num(ratios[i]) || 0;
+      if (v === null || r <= 0) return;
+      sum += v * r; usedR += r; cnt++;
+    });
+    if (!cnt) return null;
+    if (cnt === 1) return sum / usedR;
+    return Math.round(sum / usedR);
+  }
+
+  /* 역산: 다른 요소 가중합 otherSum(Σv·r), 전체 비율 R, 목표 요소 비율 r 일 때
+     반올림한 혼합 점수가 cut 이상이 되는 최소 목표 요소 점수 */
+  function requiredScore(otherSum, R, r, cut) {
+    if (num(cut) === null || !r) return null;
+    var need = Math.ceil(cut - 1e-9) - 0.5;
+    return (need * R - otherSum) / r;
+  }
+
   var api = { LABELS: LABELS, angoffCuts: angoffCuts, usedCuts: usedCuts,
               cumulativeCuts: cumulativeCuts, gradeOf: gradeOf, gradeSystem: gradeSystem,
-              finalScore: finalScore, distribution: distribution, stats: stats, num: num };
+              finalScore: finalScore, distribution: distribution, stats: stats, num: num,
+              RATIOS5: RATIOS5, RATIOS9: RATIOS9, rankGrades: rankGrades,
+              blendScore: blendScore, requiredScore: requiredScore };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.CutCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
@@ -861,7 +1002,7 @@ function renderEdit() {
         if (isNaN(v)) return;
         (box[ban] = box[ban] || {})[no] = v;
       }
-      save(); renderLoad(); renderResult();
+      save(); renderLoad(); renderResult(); renderSim();
     });
   });
 }
@@ -946,14 +1087,14 @@ function renderCutCards() {
       var v = inp.value === '' ? null : parseFloat(inp.value);
       if (inp.dataset.f === 'points') r.points = v;
       else r.rates[Number(inp.dataset.k)] = v;
-      save(); renderCutCards(); renderResult();
+      save(); renderCutCards(); renderResult(); renderSim();
     });
   });
   el.querySelectorAll('input[data-ak]').forEach(function (inp) {
     inp.addEventListener('change', function () {
       var c = state.comps[Number(inp.dataset.ci)];
       c.actual[Number(inp.dataset.ak)] = inp.value === '' ? null : parseFloat(inp.value);
-      save(); renderCutCards(); renderResult();
+      save(); renderCutCards(); renderResult(); renderSim();
     });
   });
 }
@@ -994,7 +1135,7 @@ function renderResult() {
   h += '<table class="cuts"><tr><th></th>' + BOUND.map(function (b) { return '<th>' + b + '</th>'; }).join('') + '</tr>'
     + '<tr><td class="rowlbl">누적 분할점수 (자동)</td>'
     + P.cum.cuts.map(function (v) { return '<td class="num used">' + fmt(v) + '</td>'; }).join('') + '</tr></table>';
-  h += '<p class="footnote">학기말 점수는 요소별 점수의 비율 가중합을 소수 첫째 자리에서 반올림한 정수이며, '
+  h += '<p class="footnote">수행 가정점수·분할을 바꿔 보거나 학생별 성취도·석차등급을 보려면 「시뮬레이션」 탭을 쓰세요. 학기말 점수는 요소별 점수의 비율 가중합을 소수 첫째 자리에서 반올림한 정수이며, '
     + '수행 점수가 없으면 가정 점수, 지필 점수가 없으면 입력된 요소만으로 재정규화합니다.</p></div>';
 
   // 모니터링
@@ -1037,9 +1178,587 @@ function renderResult() {
   el.innerHTML = h;
 }
 
+/* ---------- 시뮬레이션 ----------
+   고정: 적재된 실제 점수, 요소별 반영비율
+   변동: 반영 요소 on/off, 요소별 점수 출처(실제/가정/1차 복사±n), 요소별 분할(사용/고정/1차/직접 ±n), 등급 체계
+   기준선(저장 조합 또는 「1차만」) 대비 변화를 함께 표시 */
+var FIXED_CUTS = [90, 80, 70, 60, 40];
+var simSel = null;
+function firstExamComp() { return examComps()[0] || null; }
+function hasScores(c) {
+  var box = state.scores[c.id] || {};
+  return Object.keys(box).some(function (b) {
+    return Object.keys(box[b]).some(function (n) { return num(box[b][n]) !== null; });
+  });
+}
+function cutsAny(a) { return (a || []).some(function (v) { return num(v) !== null; }); }
+function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+function defaultCompCfg(c) {
+  var f = firstExamComp(), used = usedCutsOf(c);
+  var o = { on: (num(c.ratio) || 0) > 0, src: 'actual', delta: 0,
+            assume: num(c.fallback) !== null ? num(c.fallback) : 90,
+            cut: cutsAny(used) ? 'used' : 'fixed', shift: 0,
+            custom: cutsAny(used) ? used.slice() : FIXED_CUTS.slice() };
+  if (c !== f && c.kind === 'exam') {
+    o.src = hasScores(c) ? 'actual' : 'copy1';
+    if (!cutsAny(used)) o.cut = 'first';
+  } else if (c.kind === 'perf') {
+    o.src = hasScores(c) ? 'actual' : 'assume';
+  }
+  return o;
+}
+function presetCfg(kind) {
+  var f = firstExamComp(), cfg = { comps: {} };
+  state.comps.forEach(function (c) {
+    var o = defaultCompCfg(c), r = (num(c.ratio) || 0) > 0;
+    if (kind === 'first') o.on = c === f;
+    else if (kind === 'firstPerf') o.on = r && (c === f || c.kind === 'perf');
+    else if (kind === 'exams') o.on = r && c.kind === 'exam';
+    else o.on = r;
+    cfg.comps[c.id] = o;
+  });
+  return cfg;
+}
+function syncCfg(cfg) {
+  if (!cfg) return cfg;
+  cfg.comps = cfg.comps || {};
+  var ids = {};
+  state.comps.forEach(function (c) {
+    ids[c.id] = 1;
+    if (!cfg.comps[c.id]) { var o = defaultCompCfg(c); o.on = false; cfg.comps[c.id] = o; }
+  });
+  Object.keys(cfg.comps).forEach(function (id) { if (!ids[id]) delete cfg.comps[id]; });
+  return cfg;
+}
+function ensureSim() {
+  if (!state.sim || !state.sim.cfg) {
+    state.sim = { cfg: presetCfg('all'), base: null, baseName: null, saved: [], gradeSys: 5,
+                  view: { ban: 'all', show: 'all', sort: 'banno' } };
+  }
+  var S = state.sim;
+  S.saved = S.saved || [];
+  S.view = S.view || { ban: 'all', show: 'all', sort: 'banno' };
+  if (S.gradeSys !== 9) S.gradeSys = 5;
+  syncCfg(S.cfg); syncCfg(S.base);
+  S.saved.forEach(function (x) { syncCfg(x.cfg); });
+  return S;
+}
+function resolveCuts(c, o) {
+  var f = firstExamComp(), base;
+  if (o.cut === 'fixed') base = FIXED_CUTS;
+  else if (o.cut === 'first') base = f ? usedCutsOf(f) : [];
+  else if (o.cut === 'custom') base = o.custom || [];
+  else base = usedCutsOf(c);
+  var sh = num(o.shift) || 0;
+  return [0, 1, 2, 3, 4].map(function (k) {
+    var v = num(base[k]);
+    return v === null ? null : Math.round((v + sh) * 100) / 100;
+  });
+}
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+/* 분할 출처: 예측(Angoff) / 실제(회의 확정·입력) / 고정 / 직접 */
+function srcOfUsed(c) {
+  var anyActual = cutsAny(c.actual);
+  if (anyActual) return c.kind === 'exam' ? ['real', '회의 확정'] : ['real', '분할 탭 입력'];
+  if (c.kind === 'exam' && cutsAny(K.angoffCuts(c.angoff || []))) return ['pred', 'Angoff 예측'];
+  return ['none', '없음'];
+}
+function cutSrcTag(c, o) {
+  var t;
+  if (o.cut === 'fixed') t = ['real', '고정분할'];
+  else if (o.cut === 'custom') t = ['pred', '직접 입력(가상)'];
+  else if (o.cut === 'first') { var f = firstExamComp(); t = f ? srcOfUsed(f) : ['none', '없음']; t = [t[0], '1차 ' + t[1]]; }
+  else t = srcOfUsed(c);
+  var sh = num(o.shift) || 0;
+  return '<span class="src ' + t[0] + '">' + t[1] + (sh ? (sh > 0 ? ' +' : ' ') + fmt(sh, 2) : '') + '</span>';
+}
+
+function simCompute(cfg, gradeSys) {
+  var f = firstExamComp();
+  var parts = [];
+  state.comps.forEach(function (c) {
+    var o = cfg.comps[c.id], r = num(c.ratio) || 0;
+    if (!o || !o.on || r <= 0) return;
+    parts.push({ c: c, o: o, ratio: r, cuts: resolveCuts(c, o) });
+  });
+  var cum = K.cumulativeCuts(parts.map(function (p) { return { id: p.c.id, ratio: p.ratio, cuts: p.cuts }; }));
+  var f1cuts = f ? usedCutsOf(f) : [];
+  var R = gradeSys === 9 ? K.RATIOS9 : K.RATIOS5;
+  var rows = allStudents().map(function (st) {
+    var key = st.ban + '-' + st.no;
+    var s1 = f ? scoreOf(f, st.ban, st.no) : null;
+    var real = false;
+    var vals = parts.map(function (p) {
+      var a = scoreOf(p.c, st.ban, st.no), o = p.o;
+      if (p.c === f || o.src === 'actual') {
+        if (a !== null) { real = true; return { v: a, as: false }; }
+        if (p.c.kind === 'perf') return { v: num(o.assume), as: true };
+        return { v: null, as: false };
+      }
+      if (o.src === 'assume') return { v: num(o.assume), as: true };
+      if (s1 === null) return { v: null, as: false };
+      return { v: clamp(s1 + (num(o.delta) || 0), 0, 100), as: true };
+    });
+    var fin = real ? K.blendScore(vals.map(function (x) { return x.v; }), parts.map(function (p) { return p.ratio; })) : null;
+    return { key: key, ban: st.ban, no: st.no, name: state.names[key] || '', s1: s1,
+             a1: s1 !== null ? K.gradeOf(s1, f1cuts) : null, vals: vals, final: fin,
+             ach: fin !== null ? K.gradeOf(fin, cum.cuts) : null };
+  });
+  var rk = K.rankGrades(rows.map(function (r) { return { id: r.key, score: r.final }; }), R);
+  var rk1 = K.rankGrades(rows.map(function (r) { return { id: r.key, score: r.s1 }; }), R);
+  rows.forEach(function (r) {
+    r.rank = rk.byId[r.key] ? rk.byId[r.key].grade : null;
+    r.r1 = rk1.byId[r.key] ? rk1.byId[r.key].grade : null;
+    // 경계: 위 등급 분할까지 필요한 점수, 현재 등급 하한 여유
+    r.up = null; r.margin = null;
+    if (r.ach) {
+      var gi = K.LABELS.indexOf(r.ach);
+      if (gi > 0 && num(cum.cuts[gi - 1]) !== null) r.up = Math.ceil(cum.cuts[gi - 1] - 1e-9) - r.final;
+      if (gi < cum.cuts.length && num(cum.cuts[gi]) !== null) r.margin = r.final - cum.cuts[gi];
+    }
+  });
+  var dist = K.distribution(rows.map(function (r) { return r.final; }), cum.cuts);
+  var st = K.stats(rows.map(function (r) { return r.final; }));
+  return { parts: parts, cum: cum, rows: rows, dist: dist, avg: st.avg, n: st.n,
+           noCut: parts.filter(function (p) { return !cutsAny(p.cuts); }) };
+}
+function cfgLabel(cfg) {
+  var f = firstExamComp(), on = [];
+  state.comps.forEach(function (c) {
+    var o = cfg.comps[c.id];
+    if (!o || !o.on || !(num(c.ratio) > 0)) return;
+    var t = c.name;
+    if (c !== f) {
+      if (o.src === 'assume') t += '(' + fmt(o.assume, 1) + ' 가정)';
+      else if (o.src === 'copy1') t += '(1차' + (num(o.delta) ? (o.delta > 0 ? '+' : '') + o.delta : '') + ' 가정)';
+    }
+    on.push(t);
+  });
+  return on.join(' + ') || '반영 요소 없음';
+}
+
+/* ── 렌더 ── */
+function renderSim() {
+  var el = document.getElementById('simBody');
+  if (!allStudents().length) { el.innerHTML = '<div class="empty">점수 자료를 먼저 적재해 주세요.</div>'; return; }
+  ensureSim();
+  if (!document.getElementById('simCtl')) {
+    el.innerHTML = '<div class="sim"><aside class="simctl" id="simCtl"></aside><div id="simOut"></div></div>';
+    bindSimCtl(); bindSimOut();
+  }
+  renderSimCtl(); renderSimOut();
+}
+var CUTLBL = ['A/B', 'B/C', 'C/D', 'D/E', '미도달'];
+function sys5() { return K.LABELS.slice(0, 6); }
+function seg(act, cur, opts) {
+  return '<span class="seg">' + opts.map(function (o) {
+    return '<button data-act="' + act + '" data-v="' + o[0] + '"' + (String(cur) === String(o[0]) ? ' class="on"' : '') + '>' + o[1] + '</button>';
+  }).join('') + '</span>';
+}
+function renderSimCtl() {
+  var S = state.sim, cfg = S.cfg, f = firstExamComp();
+  var h = '<div class="ctlrow"><h3>석차등급 체계</h3>' + seg('gsys', S.gradeSys, [[5, '5등급 (2022 개정)'], [9, '9등급 (2015 개정)']]) + '</div>';
+  h += '<div class="ctlrow"><h3>반영 범위 빠른 선택</h3><div class="quick">'
+    + '<button class="stp" data-act="preset" data-v="first">1차만</button>'
+    + (perfComps().length ? '<button class="stp" data-act="preset" data-v="firstPerf">1차+수행</button>' : '')
+    + (examComps().length > 1 ? '<button class="stp" data-act="preset" data-v="exams">지필만</button>' : '')
+    + '<button class="stp" data-act="preset" data-v="all">전체 반영</button></div></div>';
+  h += '<div class="ctlrow"><h3>요소별 조정 <span style="font-weight:400">· 바꾸면 오른쪽 결과가 바로 바뀝니다</span></h3>';
+  state.comps.forEach(function (c) {
+    var o = cfg.comps[c.id], r = num(c.ratio) || 0, cuts = resolveCuts(c, o);
+    var dis = r <= 0;
+    h += '<div class="cbox' + (o.on && !dis ? '' : ' off') + '" data-id="' + c.id + '"><div class="hd">'
+      + '<input type="checkbox" data-act="on"' + (o.on && !dis ? ' checked' : '') + (dis ? ' disabled' : '') + '>'
+      + '<b>' + esc(c.name) + '</b><span class="rt">' + (dis ? '비율 0 — 반영비율 탭에서 입력' : '비율 ' + fmt(r, 1) + '%') + '</span></div>';
+    // 점수 출처
+    if (c === f) {
+      h += '<div class="ln">점수: 실제 점수 (고정)</div>';
+    } else if (c.kind === 'exam') {
+      h += '<div class="ln">점수 <select data-act="src"><option value="actual"' + (o.src === 'actual' ? ' selected' : '') + '>실제 점수' + (hasScores(c) ? '' : ' (없음)') + '</option>'
+        + '<option value="copy1"' + (o.src === 'copy1' ? ' selected' : '') + '>1차 점수 그대로 가정</option></select>'
+        + (o.src === 'copy1' ? ' ± <input class="cell" data-act="delta" type="number" step="1" value="' + (num(o.delta) || 0) + '">점' : '') + '</div>';
+    } else {
+      h += '<div class="ln">점수 <select data-act="src"><option value="actual"' + (o.src === 'actual' ? ' selected' : '') + '>실제 점수 (빈칸은 가정)</option>'
+        + '<option value="assume"' + (o.src === 'assume' ? ' selected' : '') + '>전원 같은 점수 가정</option></select>'
+        + ' <input class="cell" data-act="assume" type="number" step="1" value="' + (num(o.assume) === null ? '' : o.assume) + '">점</div>'
+        + '<div class="ln quick">' + [70, 80, 85, 90, 95].map(function (v) {
+            return '<button class="stp" data-act="assumeq" data-v="' + v + '"' + (num(o.assume) === v ? ' style="border-color:var(--accent);color:var(--accent-ink)"' : '') + '>' + v + '</button>';
+          }).join('') + '</div>';
+    }
+    // 분할점수
+    var opts = [['used', c.kind === 'exam' ? '사용 분할 (실제>예측)' : '분할점수 탭 입력값'], ['fixed', '고정분할 90·80·70·60·40']];
+    if (c !== f && f) opts.push(['first', '1차 분할 따라가기']);
+    opts.push(['custom', '직접 입력']);
+    h += '<div class="ln">분할 <select data-act="cut">' + opts.map(function (x) {
+        return '<option value="' + x[0] + '"' + (o.cut === x[0] ? ' selected' : '') + '>' + x[1] + '</option>';
+      }).join('') + '</select></div><div class="ln">전체 이동'
+      + ' <button class="stp" data-act="shift" data-v="-1">−1</button><span class="num" style="min-width:30px;text-align:center">'
+      + ((num(o.shift) || 0) > 0 ? '+' : '') + fmt(num(o.shift) || 0, 2) + '</span><button class="stp" data-act="shift" data-v="1">+1</button></div>';
+    h += '<div class="ln">현재 출처 ' + cutSrcTag(c, o) + '</div>';
+    h += '<div class="cutin">' + CUTLBL.map(function (L, k) {
+      return '<div><label>' + L + '</label><input class="cell" data-act="cutv" data-k="' + k + '" type="number" step="0.5" value="' + (cuts[k] === null ? '' : cuts[k]) + '"></div>';
+    }).join('') + '</div>';
+    if (!cutsAny(cuts)) h += '<div class="ln" style="color:var(--warn)">분할점수가 없어 누적 분할에서 빠집니다</div>';
+    h += '</div>';
+  });
+  h += '</div>';
+  // 기준선·저장
+  h += '<div class="ctlrow"><h3>기준선 <span style="font-weight:400">· 결과의 「변화」는 이 조합과 비교한 값입니다</span></h3>'
+    + '<div style="font-size:.84rem;margin-bottom:6px">📌 ' + esc(S.base ? (S.baseName || '고정한 조합') : '1차만 (자동)') + '</div>'
+    + '<div class="quick"><button class="stp" data-act="setbase">현재 조합을 기준선으로</button>'
+    + (S.base ? '<button class="stp" data-act="clearbase">1차만으로 되돌리기</button>' : '') + '</div></div>';
+  h += '<div class="ctlrow"><h3>저장한 조합</h3><div class="quick"><button class="stp" data-act="savecfg">+ 현재 조합 저장</button></div>'
+    + '<div class="chips">' + S.saved.map(function (x, i) {
+        return '<span class="chip' + (S.base && S.baseName === x.name ? ' base' : '') + '"><span data-act="loadcfg" data-v="' + i + '">' + esc(x.name) + '</span>'
+          + '<span class="x" data-act="delcfg" data-v="' + i + '" title="삭제">✕</span></span>';
+      }).join('') + '</div>'
+    + (S.saved.length ? '<p class="footnote" style="margin-top:6px">이름을 누르면 그 조합을 불러옵니다. 결과 아래 비교표에 나란히 표시됩니다.</p>' : '') + '</div>';
+  document.getElementById('simCtl').innerHTML = h;
+}
+
+function bindSimCtl() {
+  var box = document.getElementById('simCtl');
+  function compOf(t) { var b = t.closest('.cbox'); return b ? state.sim.cfg.comps[b.dataset.id] : null; }
+  function commit(full) { save(); if (full) renderSimCtl(); renderSimOut(); }
+  box.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-act]');
+    if (!t) return;
+    var S = state.sim, a = t.dataset.act, o = compOf(t);
+    if (a === 'gsys') { S.gradeSys = Number(t.dataset.v); commit(true); }
+    else if (a === 'preset') { var p = presetCfg(t.dataset.v); Object.keys(p.comps).forEach(function (id) { S.cfg.comps[id].on = p.comps[id].on; }); commit(true); }
+    else if (a === 'assumeq') { o.assume = Number(t.dataset.v); o.src = 'assume'; commit(true); }
+    else if (a === 'shift') { o.shift = Math.round(((num(o.shift) || 0) + Number(t.dataset.v)) * 100) / 100; commit(true); }
+    else if (a === 'setbase') {
+      S.base = clone(S.cfg); S.baseName = '고정한 조합 (' + cfgLabel(S.cfg) + ')'; commit(true);
+    }
+    else if (a === 'clearbase') { S.base = null; S.baseName = null; commit(true); }
+    else if (a === 'savecfg') {
+      var nm = prompt('이 조합의 이름', '안 ' + (S.saved.length + 1));
+      if (!nm) return;
+      S.saved.push({ name: nm.trim(), cfg: clone(S.cfg) }); commit(true);
+    }
+    else if (a === 'loadcfg') { S.cfg = clone(S.saved[Number(t.dataset.v)].cfg); syncCfg(S.cfg); commit(true); }
+    else if (a === 'delcfg') {
+      var x = S.saved[Number(t.dataset.v)];
+      if (!confirm('「' + x.name + '」 조합을 삭제할까요?')) return;
+      S.saved.splice(Number(t.dataset.v), 1); commit(true);
+    }
+  });
+  box.addEventListener('change', function (e) {
+    var t = e.target, a = t.dataset.act, o = compOf(t);
+    if (!o) return;
+    if (a === 'on') { o.on = t.checked; commit(true); }
+    else if (a === 'src') { o.src = t.value; commit(true); }
+    else if (a === 'cut') {
+      if (t.value === 'custom' && o.cut !== 'custom') {
+        var c = state.comps.find(function (x) { return state.sim.cfg.comps[x.id] === o; });
+        o.custom = resolveCuts(c, o); o.shift = 0;
+      }
+      o.cut = t.value; commit(true);
+    }
+    // 숫자 입력은 input 이벤트에서 이미 반영 — 여기서 패널을 다시 그리면 바로 이어지는 버튼 클릭이 사라짐
+    else if (a === 'cutv' || a === 'delta' || a === 'assume') save();
+  });
+  box.addEventListener('input', function (e) {
+    var t = e.target, a = t.dataset.act, o = compOf(t);
+    if (!o) return;
+    var v = t.value === '' ? null : parseFloat(t.value);
+    if (a === 'delta') o.delta = v || 0;
+    else if (a === 'assume') o.assume = v;
+    else if (a === 'cutv') {
+      if (o.cut !== 'custom') {
+        var c = state.comps.find(function (x) { return state.sim.cfg.comps[x.id] === o; });
+        o.custom = resolveCuts(c, o); o.shift = 0; o.cut = 'custom';
+        var sel = t.closest('.cbox').querySelector('select[data-act="cut"]');
+        if (sel) sel.value = 'custom';
+      }
+      o.custom[Number(t.dataset.k)] = (num(o.shift) ? v - o.shift : v);
+    } else return;
+    save(); renderSimOut();
+  });
+}
+
+function dlt(cur, base, d, invert) {
+  if (num(cur) === null || num(base) === null) return '';
+  var x = cur - base;
+  if (Math.abs(x) < 1e-9) return '<span class="delta z">±0</span>';
+  var good = invert ? x < 0 : x > 0;
+  return '<span class="delta ' + (good ? 'up' : 'dn') + '">' + (x > 0 ? '+' : '−') + fmt(Math.abs(x), d === undefined ? 1 : d) + '</span>';
+}
+function gtag(L) { return L ? '<span class="gtag" style="background:' + GCOL[L] + '">' + L + '</span>' : '—'; }
+
+function renderSimOut() {
+  var S = state.sim, f = firstExamComp();
+  var cur = simCompute(S.cfg, S.gradeSys);
+  var baseCfg = S.base || presetCfg('first');
+  var base = simCompute(baseCfg, S.gradeSys);
+  var bmap = {};
+  base.rows.forEach(function (r) { bmap[r.key] = r; });
+  var GN = S.gradeSys;
+  var h = '';
+
+  // ⓪ 경고·도구
+  var rsum = 0; state.comps.forEach(function (c) { rsum += num(c.ratio) || 0; });
+  if (Math.abs(rsum - 100) > 1e-9) h += '<div class="warnline">반영비율 합계가 ' + fmt(rsum, 1) + '입니다. 「반영비율·분할점수」 탭에서 100으로 맞추세요.</div>';
+  if (!cur.parts.length) h += '<div class="warnline">반영 요소가 하나도 선택되지 않았습니다. 왼쪽에서 요소를 체크하세요.</div>';
+  h += '<div class="btnrow" style="margin:0 0 14px"><button class="act small" data-out="xlsx">엑셀로 내보내기</button><button class="act small" data-out="print">인쇄</button></div>';
+  // ① 요약
+  h += '<div class="card"><h2>현재 조합<span class="sub">' + esc(cfgLabel(S.cfg)) + '</span></h2>';
+  var aPct = cur.dist.n ? cur.dist.counts.A / cur.dist.n * 100 : null;
+  var aPctB = base.dist.n ? base.dist.counts.A / base.dist.n * 100 : null;
+  h += '<div class="kpis">'
+    + '<div class="kpi"><div class="v num">' + cur.n + '명</div><div class="k">산출 대상</div></div>'
+    + '<div class="kpi"><div class="v num"><em>' + fmt(cur.avg, 1) + '</em>' + dlt(cur.avg, base.avg) + '</div><div class="k">환산 평균 (기준선 ' + fmt(base.avg, 1) + ')</div></div>'
+    + '<div class="kpi"><div class="v num">' + fmt(aPct, 1) + '%' + dlt(aPct, aPctB, 1, true) + '</div><div class="k">A 비율 (기준선 ' + fmt(aPctB, 1) + '%)</div></div>'
+    + '<div class="kpi"><div class="v num">' + fmt(cur.cum.cuts[0], 2) + dlt(cur.cum.cuts[0], base.cum.cuts[0], 2) + '</div><div class="k">최종 A/B 분할</div></div>'
+    + '</div>';
+  // 분할 구성표
+  h += '<table class="cmp"><tr><th class="l">분할점수</th><th>비율</th>' + CUTLBL.map(function (b) { return '<th>' + b + '</th>'; }).join('') + '</tr>';
+  cur.parts.forEach(function (p) {
+    h += '<tr><td class="l">' + esc(p.c.name) + '</td><td class="num">' + fmt(p.ratio, 1) + '</td>'
+      + p.cuts.map(function (v) { return '<td class="num">' + fmt(v) + '</td>'; }).join('') + '</tr>';
+  });
+  h += '<tr class="cur"><td class="l">최종 (가중평균)</td><td class="num">' + fmt(cur.cum.totalRatio, 1) + '</td>'
+    + cur.cum.cuts.map(function (v) { return '<td class="num" style="color:var(--accent-ink)">' + fmt(v) + '</td>'; }).join('') + '</tr>';
+  h += '<tr><td class="l" style="color:var(--muted)">기준선 최종</td><td></td>'
+    + base.cum.cuts.map(function (v, k) { return '<td class="num" style="color:var(--muted)">' + fmt(v) + ' ' + dlt(cur.cum.cuts[k], v, 2) + '</td>'; }).join('') + '</tr></table>';
+  if (cur.noCut.length) h += '<p class="footnote" style="color:var(--warn)">' + cur.noCut.map(function (p) { return esc(p.c.name); }).join(', ') + '에 분할점수가 없어 최종 분할 계산에서 빠졌습니다.</p>';
+  h += '<p class="footnote">점수: 반영 요소만으로 비율을 재정규화해 가중평균(요소 2개 이상이면 정수 반올림). 기울임 점수는 가정값입니다. 최종 분할 = 요소별 분할의 비율 가중평균.</p></div>';
+
+  // ①-2 분할 민감도: 한 요소의 분할을 −5~+5 이동했을 때
+  var sweepable = cur.parts.filter(function (p) { return cutsAny(p.cuts); });
+  if (sweepable.length && cur.parts.length > 1) {
+    var sid = S.view.sweep;
+    var sp = sweepable.filter(function (p) { return p.c.id === sid; })[0]
+      || sweepable.filter(function (p) { return p.c !== f; })[0] || sweepable[0];
+    var so = S.cfg.comps[sp.c.id], sh0 = num(so.shift) || 0;
+    h += '<div class="card"><h2>분할 민감도<span class="sub">한 요소의 분할을 전체 이동했을 때 · 행을 누르면 적용</span></h2>'
+      + '<div class="tools">움직일 요소 <select data-v="sweep">' + sweepable.map(function (p) {
+          return '<option value="' + p.c.id + '"' + (p === sp ? ' selected' : '') + '>' + esc(p.c.name) + '</option>';
+        }).join('') + '</select></div>';
+    h += '<table class="cmp"><tr><th>이동</th><th>' + esc(sp.c.name) + ' A/B</th><th>최종 A/B</th><th>최종 B/C</th>'
+      + sys5().map(function (L) { return '<th>' + L + '</th>'; }).join('') + '<th>A 비율</th></tr>';
+    for (var d = -5; d <= 5; d++) {
+      var cc = clone(S.cfg);
+      cc.comps[sp.c.id].shift = Math.round((sh0 + d) * 100) / 100;
+      var rr = d === 0 ? cur : simCompute(cc, GN);
+      var pc = rr.parts.filter(function (p) { return p.c.id === sp.c.id; })[0];
+      var ap = rr.dist.n ? rr.dist.counts.A / rr.dist.n * 100 : null;
+      h += '<tr class="pick' + (d === 0 ? ' now' : '') + '" data-sweep="' + d + '"><td class="num">' + (d > 0 ? '+' : d < 0 ? '−' : '') + Math.abs(d) + (d === 0 ? ' (현재)' : '') + '</td>'
+        + '<td class="num">' + fmt(pc ? pc.cuts[0] : null) + '</td><td class="num">' + fmt(rr.cum.cuts[0]) + '</td><td class="num">' + fmt(rr.cum.cuts[1]) + '</td>'
+        + sys5().map(function (L) { return '<td class="num">' + rr.dist.counts[L] + '</td>'; }).join('')
+        + '<td class="num"' + (ap !== null && ap > state.th.aMax + 1e-9 ? ' style="color:var(--warn)"' : '') + '>' + fmt(ap, 1) + '%</td></tr>';
+    }
+    h += '</table><p class="footnote">빨간 A 비율은 모니터링 상한(' + state.th.aMax + '%)을 넘는 값입니다. 다른 요소는 현재 설정 그대로 둡니다.</p></div>';
+  }
+
+  // ② 분포
+  var sys = K.LABELS.filter(function (L, i) {
+    return cur.dist.system.indexOf(L) >= 0 || base.dist.system.indexOf(L) >= 0;
+  });
+  if (!sys.length) sys = K.LABELS.slice(0, 5);
+  var maxC = 1;
+  sys.forEach(function (L) { maxC = Math.max(maxC, cur.dist.counts[L], base.dist.counts[L]); });
+  h += '<div class="card"><h2>성취도 분포<span class="sub">기준선 → 현재 · 회색 막대 = 기준선, 색 막대 = 현재</span></h2><table class="cmp">'
+    + '<tr><th class="l">성취도</th><th>최종 분할</th><th>기준선</th><th>현재</th><th>변화</th><th class="l" style="width:40%"></th></tr>';
+  sys.forEach(function (L, i) {
+    var c = cur.dist.counts[L], b = base.dist.counts[L];
+    var pc = cur.dist.n ? c / cur.dist.n * 100 : 0, pb = base.dist.n ? b / base.dist.n * 100 : 0;
+    h += '<tr><td class="l">' + gtag(L) + '</td><td class="num">' + (i < 5 && num(cur.cum.cuts[i]) !== null ? fmt(cur.cum.cuts[i]) + ' 이상' : '') + '</td>'
+      + '<td class="num" style="color:var(--muted)">' + b + '명 · ' + fmt(pb, 1) + '%</td>'
+      + '<td class="num"><b>' + c + '명</b> · ' + fmt(pc, 1) + '%</td><td>' + dlt(c, b, 0) + '</td>'
+      + '<td class="l"><span class="bar" style="width:' + (b / maxC * 45) + '%;background:var(--line)"></span><br><span class="bar" style="width:' + (c / maxC * 45) + '%;background:' + GCOL[L] + '"></span></td></tr>';
+  });
+  h += '</table>';
+  // 지표
+  var aCut = cur.cum.cuts[0];
+  var checks = [
+    { nm: 'A 비율', v: fmt(aPct, 1) + '%', std: state.th.aMax + '% 이하', ok: aPct !== null && aPct <= state.th.aMax + 1e-9 },
+    { nm: '평균 < A 분할', v: fmt(cur.avg, 1) + ' / ' + fmt(aCut, 1), std: '평균이 A 분할보다 낮음', ok: cur.avg !== null && num(aCut) !== null && cur.avg < aCut },
+    { nm: '과목 평균', v: fmt(cur.avg, 1), std: state.th.avgMax + '점 이하', ok: cur.avg !== null && cur.avg <= state.th.avgMax + 1e-9 },
+    { nm: 'A 분할점수', v: fmt(aCut, 1), std: state.th.aCutMin + '점 이상', ok: num(aCut) !== null && aCut >= state.th.aCutMin - 1e-9 }
+  ];
+  h += '<div style="margin-top:14px">' + checks.map(function (c) {
+    return '<div class="metric"><span class="nm" style="min-width:130px">' + c.nm + '</span><span class="val num">' + c.v + '</span><span class="val">기준 ' + c.std + '</span><span class="st ' + (c.ok ? 'ok' : 'warn') + '">' + (c.ok ? '✓ 양호' : '⚠ 경고') + '</span></div>';
+  }).join('') + '</div></div>';
+
+  // ③ 성취도 × 석차등급
+  h += '<div class="card"><h2>성취도 × 석차등급<span class="sub">현재 조합 · ' + GN + '등급 (동점 경계는 중간석차)</span></h2><div style="overflow-x:auto"><table class="cmp"><tr><th class="l"></th>';
+  for (var g = 1; g <= GN; g++) h += '<th>' + g + '등급</th>';
+  h += '<th>계</th></tr>';
+  sys.forEach(function (L) {
+    var cnt = [], tot = 0;
+    for (var g = 1; g <= GN; g++) cnt.push(0);
+    cur.rows.forEach(function (r) { if (r.ach === L && r.rank) { cnt[r.rank - 1]++; tot++; } });
+    h += '<tr><td class="l">' + gtag(L) + '</td>' + cnt.map(function (x) { return '<td class="num"' + (x ? '' : ' style="color:var(--faint)"') + '>' + (x || '·') + '</td>'; }).join('') + '<td class="num"><b>' + tot + '</b></td></tr>';
+  });
+  h += '</table></div></div>';
+
+  // ④ 바뀐 학생
+  var changed = cur.rows.filter(function (r) {
+    var b = bmap[r.key];
+    return b && r.final !== null && (b.ach !== r.ach || b.rank !== r.rank);
+  });
+  h += '<div class="card"><details' + (changed.length && changed.length <= 40 ? ' open' : '') + ' class="editbox" style="border:0;margin:0"><summary style="padding:0 0 10px">기준선 대비 바뀐 학생 ' + changed.length + '명'
+    + '<span class="sub">성취도 또는 석차등급이 달라진 학생</span></summary>';
+  if (changed.length) {
+    h += '<div class="stu"><table class="cmp"><tr><th>반</th><th>번호</th><th class="l">이름</th><th>기준선 점수</th><th>성취도</th><th>등급</th><th></th><th>현재 점수</th><th>성취도</th><th>등급</th></tr>';
+    changed.forEach(function (r) {
+      var b = bmap[r.key];
+      h += '<tr><td class="num">' + r.ban + '</td><td class="num">' + r.no + '</td><td class="l">' + esc(r.name) + '</td>'
+        + '<td class="num" style="color:var(--muted)">' + fmt(b.final, 1) + '</td><td>' + gtag(b.ach) + '</td><td class="num">' + (b.rank || '—') + '</td><td>→</td>'
+        + '<td class="num"><b>' + fmt(r.final, 1) + '</b></td><td>' + gtag(r.ach) + '</td><td class="num"><b>' + (r.rank || '—') + '</b></td></tr>';
+    });
+    h += '</table></div>';
+  } else h += '<p class="subj-note">기준선과 결과가 같습니다.</p>';
+  h += '</details></div>';
+
+  // ⑤ 비교표 (저장 조합)
+  if (S.saved.length) {
+    h += '<div class="card"><h2>저장한 조합 비교<span class="sub">' + GN + '등급 · 같은 학생 집단</span></h2><div style="overflow-x:auto"><table class="cmp"><tr><th class="l">조합</th><th>평균</th><th>A/B 분할</th>'
+      + sys.map(function (L) { return '<th>' + L + '</th>'; }).join('') + '</tr>';
+    var lines = [{ name: '현재', r: cur, cls: 'cur' }];
+    S.saved.forEach(function (x) { lines.push({ name: x.name, r: simCompute(x.cfg, GN), sub: cfgLabel(x.cfg) }); });
+    lines.forEach(function (ln) {
+      h += '<tr class="' + (ln.cls || '') + '"><td class="l">' + esc(ln.name) + (ln.sub ? '<div style="font-size:.7rem;color:var(--muted);font-weight:400">' + esc(ln.sub) + '</div>' : '') + '</td>'
+        + '<td class="num">' + fmt(ln.r.avg, 1) + '</td><td class="num">' + fmt(ln.r.cum.cuts[0]) + '</td>'
+        + sys.map(function (L) { var c = ln.r.dist.counts[L]; return '<td class="num">' + c + '<span style="color:var(--muted);font-weight:400"> (' + fmt(ln.r.dist.n ? c / ln.r.dist.n * 100 : 0, 0) + '%)</span></td>'; }).join('') + '</tr>';
+    });
+    h += '</table></div></div>';
+  }
+
+  // ⑥ 학생별
+  var V = S.view;
+  var bans = [];
+  cur.rows.forEach(function (r) { if (bans.indexOf(r.ban) < 0) bans.push(r.ban); });
+  var list = cur.rows.filter(function (r) {
+    if (V.ban !== 'all' && String(r.ban) !== String(V.ban)) return false;
+    if (V.show === 'changed') { var b = bmap[r.key]; return b && r.final !== null && (b.ach !== r.ach || b.rank !== r.rank); }
+    if (V.show === 'near') return (r.up !== null && r.up <= 2) || (r.margin !== null && r.margin < 2);
+    return true;
+  });
+  if (V.sort === 'score') list.sort(function (a, b) { return (num(b.final) === null ? -1e9 : b.final) - (num(a.final) === null ? -1e9 : a.final); });
+  var others = cur.parts.filter(function (p) { return p.c !== f; });
+  h += '<div class="card"><h2>학생별 성취도 · 석차등급<span class="sub">행을 누르면 역산 — 가정 요소가 몇 점이면 각 성취도에 닿는지</span></h2>'
+    + '<div class="tools">반 <select data-v="ban"><option value="all">전체</option>' + bans.map(function (b) { return '<option value="' + b + '"' + (String(V.ban) === String(b) ? ' selected' : '') + '>' + b + '반</option>'; }).join('') + '</select>'
+    + '보기 <select data-v="show"><option value="all"' + (V.show === 'all' ? ' selected' : '') + '>전체</option><option value="changed"' + (V.show === 'changed' ? ' selected' : '') + '>바뀐 학생</option><option value="near"' + (V.show === 'near' ? ' selected' : '') + '>경계 ±2점</option></select>'
+    + '정렬 <select data-v="sort"><option value="banno"' + (V.sort === 'banno' ? ' selected' : '') + '>반·번호</option><option value="score"' + (V.sort === 'score' ? ' selected' : '') + '>환산점수</option></select>'
+    + '<span>' + list.length + '명</span></div>';
+  var ncol = 10 + others.length;
+  h += '<div class="stu"><table class="cmp"><tr><th colspan="3"></th><th colspan="3" style="color:var(--ink)">1차만 기준</th>'
+    + '<th colspan="' + (others.length + 4) + '" style="color:var(--accent-ink)">현재 조합</th></tr>'
+    + '<tr><th>반</th><th>번호</th><th class="l">이름</th>'
+    + '<th>' + esc(f ? f.name : '1차') + '</th><th>성취도</th><th>등급</th>'
+    + others.map(function (p) { return '<th>' + esc(p.c.name) + '</th>'; }).join('')
+    + '<th>환산</th><th>성취도</th><th>등급</th><th>위 등급까지</th></tr>';
+  list.forEach(function (r) {
+    h += '<tr class="click' + (simSel === r.key ? ' sel' : '') + '" data-key="' + r.key + '"><td class="num">' + r.ban + '</td><td class="num">' + r.no + '</td><td class="l">' + esc(r.name) + '</td>'
+      + '<td class="num">' + fmt(r.s1, 1) + '</td><td>' + gtag(r.a1) + '</td><td class="num">' + (r.r1 || '—') + '</td>';
+    others.forEach(function (p) {
+      var i = cur.parts.indexOf(p), x = r.vals[i];
+      h += '<td class="num' + (x.as ? ' as' : '') + '">' + fmt(x.v, 1) + '</td>';
+    });
+    h += '<td class="num"><b>' + fmt(r.final, 1) + '</b></td><td>' + gtag(r.ach) + '</td><td class="num"><b>' + (r.rank || '—') + '</b></td>'
+      + '<td class="num" style="color:var(--muted)">' + (r.up !== null ? '+' + r.up + '점' : '') + '</td></tr>';
+    if (simSel === r.key) h += '<tr><td colspan="' + ncol + '" class="need">' + needText(r, cur) + '</td></tr>';
+  });
+  h += '</table></div></div>';
+  document.getElementById('simOut').innerHTML = h;
+}
+
+/* 엑셀 내보내기: 요약·학생별 (현재 조합) */
+function exportSim() {
+  var S = state.sim, f = firstExamComp(), GN = S.gradeSys;
+  var cur = simCompute(S.cfg, GN);
+  var others = cur.parts.filter(function (p) { return p.c !== f; });
+  var sum = [['조합', cfgLabel(S.cfg)], ['석차등급', GN + '등급'], ['산출 대상', cur.n], ['환산 평균', cur.avg === null ? '' : Math.round(cur.avg * 10) / 10], [],
+             ['분할점수', '비율'].concat(CUTLBL)];
+  cur.parts.forEach(function (p) { sum.push([p.c.name, p.ratio].concat(p.cuts.map(function (v) { return v === null ? '' : v; }))); });
+  sum.push(['최종(가중평균)', cur.cum.totalRatio].concat(cur.cum.cuts.map(function (v) { return v === null ? '' : Math.round(v * 100) / 100; })));
+  sum.push([]); sum.push(['성취도', '인원', '비율(%)']);
+  cur.dist.system.forEach(function (L) { sum.push([L, cur.dist.counts[L], cur.dist.n ? Math.round(cur.dist.counts[L] / cur.dist.n * 1000) / 10 : 0]); });
+  var head = ['반', '번호', '이름', (f ? f.name : '1차') + ' 점수', '1차 성취도', '1차 등급']
+    .concat(others.map(function (p) { return p.c.name + (p.o.src === 'actual' ? '' : ' (가정)'); }))
+    .concat(['환산점수', '성취도', '석차등급', '위 등급까지']);
+  var rows = [head];
+  cur.rows.forEach(function (r) {
+    rows.push([r.ban, r.no, r.name, r.s1 === null ? '' : r.s1, r.a1 || '', r.r1 || '']
+      .concat(others.map(function (p) { var v = r.vals[cur.parts.indexOf(p)].v; return v === null ? '' : v; }))
+      .concat([r.final === null ? '' : r.final, r.ach || '', r.rank || '', r.up === null ? '' : r.up]));
+  });
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sum), '요약');
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), '학생별');
+  var d = new Date();
+  var name = '성취도시뮬레이션_' + (d.getMonth() + 1) + '월' + d.getDate() + '일.xlsx';
+  var blob = new Blob([XLSX.write(wb, { bookType: 'xlsx', type: 'array' })],
+                      { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
+/* 역산: 가정값을 쓰는 요소(없으면 1차 외 요소)를 하나씩 변수로 두고 나머지는 현재 값으로 고정 */
+function needText(r, cur) {
+  var f = firstExamComp();
+  var targets = cur.parts.filter(function (p, i) { return r.vals[i].as; });
+  if (!targets.length) targets = cur.parts.filter(function (p) { return p.c !== f; });
+  if (!targets.length) return '1차만 반영 중이라 역산할 요소가 없습니다. 2차나 수행을 반영하면 필요한 점수가 나옵니다.';
+  return targets.map(function (p) {
+    var ti = cur.parts.indexOf(p), other = 0, R = 0;
+    cur.parts.forEach(function (q, i) {
+      var v = num(r.vals[i].v);
+      if (v === null) return;
+      R += q.ratio;
+      if (i !== ti) other += v * q.ratio;
+    });
+    if (num(r.vals[ti].v) === null) R += p.ratio;
+    var segs = [];
+    for (var k = 0; k < 5; k++) {
+      var cut = cur.cum.cuts[k];
+      if (num(cut) === null) continue;
+      var need = K.requiredScore(other, R, p.ratio, cut);
+      var t = need <= 0 ? '확보' : (need > 100 ? '불가' : Math.ceil(need * 10 - 1e-9) / 10 + '점↑');
+      segs.push('<b>' + K.LABELS[k] + '</b> ' + t);
+    }
+    return '<b>' + esc(p.c.name) + '</b>이(가) 몇 점이면 (다른 요소는 현재 값 고정): ' + segs.join(' · ');
+  }).join('<br>');
+}
+function bindSimOut() {
+  var out = document.getElementById('simOut');
+  out.addEventListener('change', function (e) {
+    var t = e.target;
+    if (t.tagName === 'SELECT' && t.dataset.v) { state.sim.view[t.dataset.v] = t.value; save(); renderSimOut(); }
+  });
+  out.addEventListener('click', function (e) {
+    var bt = e.target.closest('[data-out]');
+    if (bt) { if (bt.dataset.out === 'xlsx') exportSim(); else window.print(); return; }
+    var sw = e.target.closest('tr[data-sweep]');
+    if (sw) {
+      var d = Number(sw.dataset.sweep);
+      if (!d) return;
+      var S = state.sim, f = firstExamComp();
+      var sweepable = simCompute(S.cfg, S.gradeSys).parts.filter(function (p) { return cutsAny(p.cuts); });
+      var sp = sweepable.filter(function (p) { return p.c.id === S.view.sweep; })[0]
+        || sweepable.filter(function (p) { return p.c !== f; })[0] || sweepable[0];
+      if (!sp) return;
+      var o = S.cfg.comps[sp.c.id];
+      o.shift = Math.round(((num(o.shift) || 0) + d) * 100) / 100;
+      save(); renderSimCtl(); renderSimOut();
+      return;
+    }
+    var tr = e.target.closest('tr[data-key]');
+    if (!tr) return;
+    simSel = simSel === tr.dataset.key ? null : tr.dataset.key;
+    renderSimOut();
+  });
+}
+
 /* ---------- 공통 ---------- */
 function renderAll() {
-  renderFiles(); renderLoad(); renderComps(); renderCutCards(); renderResult();
+  renderFiles(); renderLoad(); renderComps(); renderCutCards(); renderResult(); renderSim();
 }
 function switchTab(name) {
   document.querySelectorAll('nav button').forEach(function (b) { b.classList.toggle('on', b.dataset.tab === name); });
@@ -1057,7 +1776,7 @@ drop.addEventListener('drop', function (e) { handleFiles(e.dataTransfer.files); 
 
 document.getElementById('btnReset').addEventListener('click', function () {
   if (!confirm('저장된 모든 데이터(설정·분할점수·점수)를 삭제합니다. 계속할까요?')) return;
-  state = blankState(); fileStatuses = [];
+  state = blankState(); fileStatuses = []; document.getElementById('simBody').innerHTML = '';
   try { localStorage.removeItem(LSKEY); } catch (e) {}
   save(); renderAll();
 });

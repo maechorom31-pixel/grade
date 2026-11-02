@@ -118,9 +118,63 @@
              max: Math.max.apply(null, xs), min: Math.min.apply(null, xs) };
   }
 
+  /* 석차등급 (상대평가) — 등급 시뮬레이터 computeGrades 이식.
+     entries: [{id, score}] (score null 제외), ratios: 누적비율 배열.
+     동석차가 등급 경계에 걸친 경우에만 중간석차 백분율로 판정 */
+  var RATIOS5 = [0.10, 0.34, 0.66, 0.90, 1.00];
+  var RATIOS9 = [0.04, 0.11, 0.23, 0.40, 0.60, 0.77, 0.89, 0.96, 1.00];
+  function rankGrades(entries, ratios) {
+    var R = ratios || RATIOS5, G = R.length;
+    var list = entries.filter(function (e) { return num(e.score) !== null; });
+    var n = list.length;
+    var cuts = R.map(function (r, i) { return i === G - 1 ? n : Math.round(n * r); });
+    var sorted = list.slice().sort(function (a, b) { return num(b.score) - num(a.score); });
+    var byId = {};
+    function bandOf(pos) { for (var g = 0; g < G; g++) if (pos <= cuts[g]) return g + 1; return G; }
+    var i = 0;
+    while (i < sorted.length) {
+      var j = i;
+      while (j < sorted.length && num(sorted[j].score) === num(sorted[i].score)) j++;
+      var rank = i + 1, tie = j - i;
+      var first = bandOf(rank), last = bandOf(rank + tie - 1), grade = first;
+      var mid = rank + (tie - 1) / 2;
+      if (tie > 1 && first !== last) {
+        grade = G;
+        for (var k = 0; k < G; k++) if (mid / n * 100 <= R[k] * 100 + 1e-9) { grade = k + 1; break; }
+      }
+      for (var t = i; t < j; t++) byId[sorted[t].id] = { rank: rank, tie: tie, grade: grade };
+      i = j;
+    }
+    return { n: n, byId: byId };
+  }
+
+  /* 혼합 점수: 반영 요소만 비율 재정규화. 요소 1개면 원점수, 2개 이상이면 정수 반올림(v6 규정) */
+  function blendScore(vals, ratios) {
+    var sum = 0, usedR = 0, cnt = 0;
+    vals.forEach(function (v, i) {
+      v = num(v);
+      var r = num(ratios[i]) || 0;
+      if (v === null || r <= 0) return;
+      sum += v * r; usedR += r; cnt++;
+    });
+    if (!cnt) return null;
+    if (cnt === 1) return sum / usedR;
+    return Math.round(sum / usedR);
+  }
+
+  /* 역산: 다른 요소 가중합 otherSum(Σv·r), 전체 비율 R, 목표 요소 비율 r 일 때
+     반올림한 혼합 점수가 cut 이상이 되는 최소 목표 요소 점수 */
+  function requiredScore(otherSum, R, r, cut) {
+    if (num(cut) === null || !r) return null;
+    var need = Math.ceil(cut - 1e-9) - 0.5;
+    return (need * R - otherSum) / r;
+  }
+
   var api = { LABELS: LABELS, angoffCuts: angoffCuts, usedCuts: usedCuts,
               cumulativeCuts: cumulativeCuts, gradeOf: gradeOf, gradeSystem: gradeSystem,
-              finalScore: finalScore, distribution: distribution, stats: stats, num: num };
+              finalScore: finalScore, distribution: distribution, stats: stats, num: num,
+              RATIOS5: RATIOS5, RATIOS9: RATIOS9, rankGrades: rankGrades,
+              blendScore: blendScore, requiredScore: requiredScore };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.CutCore = api;
 })(typeof window !== 'undefined' ? window : globalThis);
