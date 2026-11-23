@@ -1085,6 +1085,117 @@
             }).concat([[{ v: '71단위 이상' }, { v: '감점 없음 (× 1)' }]]) }
         ];
       }
+    },
+
+/* ────────── 인하공업전문대학 · 수시모집 (최우수 1개 학기 100%) ────────── */
+    inha: {
+      id: 'inha', name: '인하공업전문대학', short: '인하공전',
+      types: '수시모집 학생부 반영 전형',
+      target: '학생부 성적을 반영하는 전형 (정원외 전문대졸 · 북한이탈주민 전형은 학생부 미반영)',
+      formula: '최우수 1개 학기 학기등급 → 25 × (9 − 학기등급) + 출결 가산점',
+      ratioNote: '1학년 1학기 ~ 3학년 1학기 중 **최우수 1개 학기** 성적만 100% 반영 · 반영 과목은 전 과목',
+      rawNote: '학기등급 = Σ(과목등급 × 단위수) ÷ Σ(단위수). 성취도 과목은 Z점수 또는 성취도별 누적학생비율로 과목등급을 낸다',
+      mode: 'bestSem',
+      scaleMax: 220,                 // 학생부 200점 + 출결 가산점 20점
+      trunc: null,
+      excludeCommon: false,
+      careerAreaLimited: false,
+      /* 반영 과목은 전 교과 — 교과군 제한이 없다 */
+      areas: ['국어', '수학', '영어', '사회', '과학', '체예', '기타'],
+      areaOk: function () { return true; },
+      /* 환산식 25 × (9 − 학기등급), 소수 셋째 자리에서 반올림 */
+      coef: 25, gradeBase: 9,
+      semRound: 1e6,                 // 학기등급 — 소수 일곱째 자리에서 반올림
+      scoreRound: 100,               // 환산점수 — 소수 셋째 자리에서 반올림
+      semesters: [[1, 1], [1, 2], [2, 1], [2, 2], [3, 1]],
+      /* 출결 가산점 — 결석일수 0일 20점부터 2점씩, 10일 이상 0점 */
+      attend: { max: 20, perDay: 2, capDays: 10 },
+      /* 학기등급이 그대로 등급이라 환산등급 상당은 따로 계산하지 않는다 */
+      equivScale: null,
+      equivOf: function (out) { return out.semGrade; },
+
+      detail: [
+        { h: '과목등급', get: function (it) { return it.use; } }
+      ],
+
+      convert: function (it, spec) {
+        /* ① 석차등급으로 평가된 과목은 석차등급을 그대로 쓴다 */
+        if (it.grade >= 1 && it.grade <= 9) {
+          it.use = it.grade;
+          it.convGrade = it.grade;
+          it.basis = it.grade + '등급';
+          return;
+        }
+        /* ② 성취도 과목 — 표준편차가 있으면 Z점수로 */
+        var z = zScore(it.rec);
+        if (z !== null) {
+          var g = inhaZGrade(z);
+          it.use = g; it.convGrade = g; it.zScore = z;
+          it.basis = 'Z ' + roundHalfUp(z, 100) + ' → ' + g + '등급';
+          return;
+        }
+        /* ③ 성취도별 분포비율이 있으면 누적학생비율로 */
+        if (/^[ABC]$/.test(it.ach || '') && it.rec.dist) {
+          var dg = inhaDistGrade(it.ach, it.rec.dist);
+          if (dg !== null) {
+            it.use = dg; it.convGrade = dg;
+            it.distPct = it.rec.dist;
+            it.basis = '성취도 ' + it.ach + ' · 누적비율 → ' + dg + '등급';
+            return;
+          }
+        }
+        if (/^[DE]$/.test(it.ach || '')) {
+          it.reason = '성취도 ' + it.ach + ' · 산출 자료 없음';
+          return;
+        }
+        it.reason = it.ach
+          ? '성취도 ' + it.ach + ' · 표준편차 · 분포비율 모두 없음'
+          : '석차등급 없음';
+      },
+
+      specTables: function (sp) {
+        var ZL = ['1.76 이상', '1.23 이상 ~ 1.76 미만', '0.74 이상 ~ 1.23 미만',
+                  '0.26 이상 ~ 0.74 미만', '-0.26 초과 ~ 0.26 미만', '-0.74 초과 ~ -0.26 이하',
+                  '-1.23 초과 ~ -0.74 이하', '-1.76 초과 ~ -1.23 이하', '-1.76 이하'];
+        var PL = ['4 이하', '4 초과 ~ 11 이하', '11 초과 ~ 23 이하', '23 초과 ~ 40 이하',
+                  '40 초과 ~ 60 이하', '60 초과 ~ 77 이하', '77 초과 ~ 89 이하',
+                  '89 초과 ~ 96 이하', '96 초과'];
+        var att = [];
+        for (var d = 0; d <= 10; d++)
+          att.push([{ v: d >= sp.attend.capDays ? d + '일 이상' : d + '일' },
+                    { v: Math.max(0, sp.attend.max - d * sp.attend.perDay), num: true }]);
+        return [
+          { title: '학기등급 점수 환산 방법',
+            head: ['산출 석차등급', '200점 환산식'],
+            rows: [[{ v: '1.000000등급 ~ 9.000000등급' },
+                    { v: sp.coef + ' × (' + sp.gradeBase + ' − 산출 석차등급)' }],
+                   [{ v: '소수점 아래 일곱째 자리에서 반올림' },
+                    { v: '소수점 아래 셋째 자리에서 반올림' }]] },
+          { title: '등급 환산표 — 표준점수(Z)', head: ['Z점수', '과목등급'],
+            rows: ZL.map(function (t, i) { return [{ v: t }, { v: i + 1, grade: i + 1 }]; }) },
+          { title: '등급 환산표 — 백분율 누적학생비율',
+            head: ['누적학생비율(%)', '과목등급'],
+            rows: PL.map(function (t, i) { return [{ v: t }, { v: i + 1, grade: i + 1 }]; }) },
+          { title: '성취도별 과목등급 산출식 (성취도 분포비율 제공 교과목)',
+            head: ['성취도', '과목등급'],
+            rows: [
+              [{ v: 'A', strong: true }, { v: '1등급 + (A까지의 누적학생비율 ÷ 100)' }],
+              [{ v: 'B', strong: true }, { v: '(A까지의 누적비율에 해당하는 등급) + (B까지의 누적비율 ÷ 100)' }],
+              [{ v: 'C', strong: true }, { v: '(B까지의 누적비율에 해당하는 등급) + (C까지의 누적비율 ÷ 100)' }]
+            ] },
+          { title: '출결상황에 따른 가산점', head: ['결석일수', '가산점'], rows: att },
+          { title: '전형별 반영 항목 및 배점',
+            head: ['전형구분', '학과', '학생부', '서류', '면접', '총점'],
+            rows: [
+              [{ v: '정원내' }, { v: '비면접학과' }, { v: 200, num: true }, { v: '–' }, { v: '–' }, { v: '200점' }],
+              [{ v: '정원내' }, { v: '면접학과' }, { v: 200, num: true }, { v: '–' }, { v: 300, num: true }, { v: '500점' }],
+              [{ v: '정원외 (농어촌 · 수급자)' }, { v: '비면접학과' }, { v: 200, num: true }, { v: '–' }, { v: '–' }, { v: '200점' }],
+              [{ v: '정원외 (농어촌 · 수급자)' }, { v: '면접학과' }, { v: 200, num: true }, { v: '–' }, { v: 300, num: true }, { v: '500점' }],
+              [{ v: '정원외 (전문대졸 · 북한이탈주민)' }, { v: '비면접학과' }, { v: '–' }, { v: '100%' }, { v: '–' }, { v: '100%' }],
+              [{ v: '정원외 (전문대졸 · 북한이탈주민)' }, { v: '면접학과' }, { v: '–' }, { v: '–' }, { v: '100%' }, { v: '100%' }]
+            ] }
+        ];
+      }
     }
   };
 
@@ -1317,6 +1428,55 @@
     return 9;                                // 4% 미만도 최하 구간과 같이 9등급
   }
 
+  /* ═══════════════ 인하공전 등급 환산표 ═══════════════
+     성취도로 평가된 과목을 ① 표준편차가 있으면 Z점수로, ② 성취도별 분포비율이
+     있으면 누적학생비율로 과목 등급으로 바꾼다 (요강 「2) 등급 환산표」).
+
+     Z점수 — 경계 포함 방향이 위아래로 다르다.
+       1.76 이상 1 · 1.23~1.76미만 2 · 0.74~1.23미만 3 · 0.26~0.74미만 4
+       -0.26 초과 ~ 0.26 미만 5
+       -0.74~-0.26이하 6 · -1.23~-0.74이하 7 · -1.76~-1.23이하 8 · -1.76 이하 9 */
+  function inhaZGrade(z) {
+    if (z === null || z === undefined || !isFinite(z)) return null;
+    var zz = roundHalfUp(z, 100);            // 요강: Z는 소수 셋째 자리에서 반올림
+    if (zz >= 1.76) return 1;
+    if (zz >= 1.23) return 2;
+    if (zz >= 0.74) return 3;
+    if (zz >= 0.26) return 4;
+    if (zz > -0.26) return 5;
+    if (zz > -0.74) return 6;
+    if (zz > -1.23) return 7;
+    if (zz > -1.76) return 8;
+    return 9;
+  }
+
+  /* 백분율 누적학생비율 → 등급. 4 이하 1 · 4초과~11이하 2 · … · 96 초과 9 */
+  var INHA_PCT_CAP = [4, 11, 23, 40, 60, 77, 89, 96];
+  function inhaPctGrade(pct) {
+    if (pct === null || pct === undefined || !isFinite(pct)) return null;
+    for (var i = 0; i < INHA_PCT_CAP.length; i++)
+      if (pct <= INHA_PCT_CAP[i]) return i + 1;
+    return 9;
+  }
+
+  /* 성취도별 분포비율로 과목 등급 산출.
+       A : 1등급 + (A까지의 누적비율 ÷ 100)
+       B : (A까지의 누적비율에 해당하는 등급) + (B까지의 누적비율 ÷ 100)
+       C : (B까지의 누적비율에 해당하는 등급) + (C까지의 누적비율 ÷ 100)
+     곧 「바로 위 성취도까지의 누적비율에 해당하는 등급 + 내 성취도까지의 누적비율 ÷ 100」이고,
+     A는 위가 없어 1등급에서 시작한다. 산출된 과목 등급은 소수 셋째 자리에서 반올림한다. */
+  function inhaDistGrade(ach, dist) {
+    if (!dist) return null;
+    var a = dist.A || 0, b = dist.B || 0, c = dist.C || 0;
+    var cumA = a, cumB = a + b, cumC = a + b + c;
+    var g = null;
+    if (ach === 'A') g = 1 + cumA / 100;
+    else if (ach === 'B') g = inhaPctGrade(cumA) + cumB / 100;
+    else if (ach === 'C') g = inhaPctGrade(cumB) + cumC / 100;
+    else return null;
+    return roundHalfUp(g, 100);
+  }
+
   /* ═══════════════ 체육·예술 교과 성취도 평균 ═══════════════
      교과 점수에는 안 들어가지만 동점자 처리에 쓰이는 보조 지표다.
      (가천대 동점자 처리 1단계 — 성취도 배점 A 3점 · B 2점 · C 1점)
@@ -1443,6 +1603,46 @@
       out.weighted = groups.reduce(function (t, g) { return t + g.weighted; }, 0);
       out.score = scoreA === null ? null : scoreA - penalty;
       if (spec.round && out.score !== null) out.score = roundTo(out.score, spec.round);
+    } else if (spec.mode === 'bestSem') {
+      /* 학기마다 학기등급을 내고 가장 좋은(낮은) 한 학기만 100% 반영한다 (인하공전).
+         학기등급 = Σ(과목등급 × 단위수) ÷ Σ(단위수), 소수 일곱째 자리에서 반올림.
+         과목등급은 낮을수록 좋다 — 다른 대학과 방향이 반대다. */
+      var semList = spec.semesters.map(function (s) {
+        var si = inc.filter(function (it) { return it.year === s[0] && it.sem === s[1]; });
+        var n = 0, d = 0;
+        si.forEach(function (it) { n += it.credit * it.use; d += it.credit; });
+        return {
+          year: s[0], sem: s[1], label: s[0] + '학년 ' + s[1] + '학기',
+          items: si, credits: d, weighted: n,
+          grade: d > 0 ? roundHalfUp(n / d, spec.semRound) : null
+        };
+      });
+      var bestSem = null;
+      semList.forEach(function (s) {
+        if (s.grade !== null && (!bestSem || s.grade < bestSem.grade)) bestSem = s;
+      });
+      semList.forEach(function (s) { s.chosen = !!(bestSem && s === bestSem); });
+
+      /* 출결 가산점 — 생기부 교과 영역에 출결 자료가 없어 결석 0일(만점)로 둔다.
+         전원 같은 값이라 석차는 달라지지 않지만, 총점은 요강 만점과 맞는다. */
+      var attPt = spec.attend ? spec.attend.max : null;
+      var gradeScore = bestSem
+        ? roundHalfUp(spec.coef * (spec.gradeBase - bestSem.grade), spec.scoreRound) : null;
+
+      out.semesters = semList;
+      out.bestSem = bestSem;
+      out.semGrade = bestSem ? bestSem.grade : null;
+      out.gradeScore = gradeScore;
+      out.attendScore = attPt;
+      /* 반영된 것은 최우수 학기의 과목뿐이다 — 머리말의 「반영 N학점」을 그것에 맞춘다 */
+      out.included = bestSem ? bestSem.items : [];
+      out.otherItems = inc.filter(function (it) {
+        return !bestSem || it.year !== bestSem.year || it.sem !== bestSem.sem;
+      });
+      out.credits = bestSem ? bestSem.credits : 0;
+      out.weighted = bestSem ? bestSem.weighted : 0;
+      out.scoreMax = spec.scaleMax;
+      out.score = gradeScore === null ? null : gradeScore + (attPt || 0);
     } else if (spec.mode === 'best') {
       /* 여러 산출 유형을 각각 계산해 유리한(높은) 쪽을 채택한다.
          과목별 유형별 배점은 convert()가 it.altUse에 미리 담아 둔다. */
@@ -1616,7 +1816,9 @@
       }
       if (spec.round && out.score !== null) out.score = roundTo(out.score, spec.round);
     }
-    out.equiv = equivGrade(spec.equivFrom ? spec.equivFrom(out) : out.score, spec);
+    /* 산출 결과 자체가 등급인 규격(인하공전 학기등급)은 그대로 쓴다 */
+    out.equiv = spec.equivOf ? spec.equivOf(out)
+              : equivGrade(spec.equivFrom ? spec.equivFrom(out) : out.score, spec);
     return out;
   }
 
@@ -1812,7 +2014,9 @@
     yonseiCareerABC: yonseiCareerABC,
     YS_Z_TABLE: YS_Z_TABLE, ysPercentile: ysPercentile,
     CNU_Z_GRADE: CNU_Z_GRADE, cnuZGrade: cnuZGrade, roundHalfUp: roundHalfUp,
-    KU_RATIO_GRADE: KU_RATIO_GRADE, kuRatioGrade: kuRatioGrade
+    KU_RATIO_GRADE: KU_RATIO_GRADE, kuRatioGrade: kuRatioGrade,
+    INHA_PCT_CAP: INHA_PCT_CAP, inhaZGrade: inhaZGrade,
+    inhaPctGrade: inhaPctGrade, inhaDistGrade: inhaDistGrade
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else global.UnivCore = api;

@@ -4,9 +4,31 @@ const { chromium } = require('playwright-core');
 const path = require('path');
 const fs = require('fs');
 
-const EXEC = ['/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headless_shell',
-              '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
-              '/opt/pw-browsers/chromium/chrome-linux/chrome'].find(p => fs.existsSync(p));
+/* 설치된 크로미움을 찾는다. /opt/pw-browsers 아래 디렉터리 이름과 레이아웃이
+   컨테이너 이미지마다 달라(chrome-linux/headless_shell · chrome-headless-shell-linux64/…)
+   경로를 박아 두면 이미지가 바뀔 때마다 깨진다 — 한 단계씩 뒤져서 찾는다. */
+const ROOT = '/opt/pw-browsers';
+const NAMES = ['headless_shell', 'chrome-headless-shell', 'chrome'];
+function findExec(dir, depth) {
+  if (depth > 3) return null;
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return null; }
+  for (const e of entries) {
+    const p = path.join(dir, e.name);
+    if (e.isFile() && NAMES.includes(e.name)) {
+      try { fs.accessSync(p, fs.constants.X_OK); return p; } catch (err) { /* 실행 불가 */ }
+    }
+  }
+  for (const e of entries) {
+    if (!e.isDirectory()) continue;
+    const hit = findExec(path.join(dir, e.name), depth + 1);
+    if (hit) return hit;
+  }
+  return null;
+}
+const EXEC = findExec(ROOT, 0);
+if (!EXEC) { console.error('크로미움 실행 파일을 ' + ROOT + ' 아래에서 찾지 못했습니다'); process.exit(1); }
+console.log('브라우저:', EXEC);
 
 (async () => {
   const browser = await chromium.launch({ executablePath: EXEC });
@@ -323,6 +345,53 @@ const EXEC = ['/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/headle
     await new Promise(r => setTimeout(r, 250));
   });
   await page.screenshot({ path: 'shot-univ-konkuk.png', fullPage: true });
+
+  /* 인하공전 — 최우수 1개 학기 · 출결 가산점 */
+  const inha = await page.evaluate(async () => {
+    document.querySelector('nav button[data-tab="data"]').click();
+    const sel = document.getElementById('optUniv');
+    sel.value = 'inha'; sel.dispatchEvent(new Event('change', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 400));
+    const hasVariant = !document.getElementById('optVariant');
+    document.querySelector('nav button[data-tab="student"]').click();
+    const q = document.getElementById('stuQuery');
+    q.value = '3101'; q.dispatchEvent(new Event('input', { bubbles: true }));
+    await new Promise(r => setTimeout(r, 350));
+    const stuTxt = document.getElementById('stuBody').innerText;
+    document.querySelector('nav button[data-tab="spec"]').click();
+    await new Promise(r => setTimeout(r, 250));
+    const specTxt = document.getElementById('specBody').innerText;
+    document.querySelector('nav button[data-tab="rank"]').click();
+    await new Promise(r => setTimeout(r, 250));
+    return { stuTxt, specTxt, rankTxt: document.getElementById('rankBody').innerText, hasVariant };
+  });
+  console.log('\n═══ 인하공전으로 전환 ═══');
+  console.log('--- 학생 조회 3101 ---\n' + inha.stuTxt.slice(0, 1800));
+
+  checks.push(['인하공전은 계열 선택이 없다', inha.hasVariant]);
+  checks.push(['최우수 학기 표시', inha.stuTxt.includes('← 최우수')]);
+  checks.push(['최우수 학기 요인 상자', inha.stuTxt.includes('최우수 학기')]);
+  checks.push(['학기별 과목 섹션 (100% 반영 표기)',
+    inha.stuTxt.includes('최우수 학기 (100% 반영)')]);
+  checks.push(['반영되지 않는 학기 안내', inha.stuTxt.includes('이 학기는 반영되지 않습니다')]);
+  checks.push(['환산식 25 × (9 − 학기등급) 표시', inha.stuTxt.includes('25 × (9 −')]);
+  checks.push(['총점 220 만점 표기', inha.stuTxt.includes('/ 220')]);
+  checks.push(['출결 가산점 만점 가정 안내', inha.stuTxt.includes('결석 0일')]);
+  checks.push(['Z 등급 환산표 표시',
+    inha.specTxt.includes('1.76 이상') && inha.specTxt.includes('-0.26 초과 ~ 0.26 미만')]);
+  checks.push(['누적학생비율 환산표 표시',
+    inha.specTxt.includes('4 초과 ~ 11 이하') && inha.specTxt.includes('96 초과')]);
+  checks.push(['성취도별 산출식 표시',
+    inha.specTxt.includes('1등급 + (A까지의 누적학생비율 ÷ 100)')]);
+  checks.push(['출결 가산점표 표시', inha.specTxt.includes('출결상황에 따른 가산점')]);
+  checks.push(['전형별 배점표 표시', inha.specTxt.includes('전형별 반영 항목 및 배점')]);
+  checks.push(['순위 비교에 환산등급 상당 열 표시 (학기등급)',
+    inha.rankTxt.includes('환산등급 상당')]);
+  await page.evaluate(async () => {
+    document.querySelector('nav button[data-tab="student"]').click();
+    await new Promise(r => setTimeout(r, 250));
+  });
+  await page.screenshot({ path: 'shot-univ-inha.png', fullPage: true });
 
   /* 외대로 되돌리기 */
   await page.evaluate(async () => {

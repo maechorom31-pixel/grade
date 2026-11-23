@@ -1450,6 +1450,131 @@ near('69단위는 × 0.958', kuUnits(69).creditCoef, 0.958);
 near('50단위는 × 0.92', kuUnits(50).creditCoef, 0.92);
 eq('환산등급 상당은 100을 곱하기 전 가중평균 기준', kuUnits(71).equiv, 1);
 
+/* ═════════ 25. 인하공업전문대학 — 최우수 1개 학기 ═════════ */
+section('25. 인하공전 — 규격');
+const IH = U.resolve('inha');
+eq('최우수 1개 학기만 반영', IH.mode, 'bestSem');
+eq('후보 학기 5개 (1-1 ~ 3-1)', IH.semesters.map(x => x.join('-')).join(','), '1-1,1-2,2-1,2-2,3-1');
+eq('환산식 25 × (9 − 학기등급)', [IH.coef, IH.gradeBase].join('/'), '25/9');
+eq('총점 220 (학생부 200 + 출결 20)', IH.scaleMax, 220);
+eq('반영 과목은 전 과목 — 교과 제한 없음',
+   ['국어', '수학', '영어', '사회', '과학', '체예', '기타']
+     .every(a => IH.areaOk({ area: a }, IH)), true);
+
+section('25-b. 등급 환산표 — 표준점수(Z)');
+/* 경계 포함 방향이 위아래로 다르다: 0.26은 4등급, -0.26은 6등급 */
+[[3.00, 1], [1.76, 1], [1.75, 2], [1.23, 2], [1.22, 3], [0.74, 3], [0.73, 4], [0.26, 4],
+ [0.25, 5], [0.00, 5], [-0.25, 5], [-0.26, 6], [-0.74, 7], [-0.73, 6], [-1.23, 8],
+ [-1.22, 7], [-1.75, 8], [-1.76, 9], [-3.00, 9]]
+  .forEach(([z, g]) => eq(`Z ${z} → ${g}등급`, U.inhaZGrade(z), g));
+eq('Z가 없으면 등급도 없음', U.inhaZGrade(null), null);
+/* Z는 소수 셋째 자리에서 반올림 — 1.755는 1.76으로 올라가 1등급 */
+eq('Z 1.755 → 반올림 1.76 → 1등급', U.inhaZGrade(1.755), 1);
+eq('Z 1.754 → 반올림 1.75 → 2등급', U.inhaZGrade(1.754), 2);
+
+section('25-c. 등급 환산표 — 백분율 누적학생비율');
+[[4, 1], [3.9, 1], [4.1, 2], [11, 2], [11.1, 3], [23, 3], [23.1, 4], [40, 4],
+ [40.1, 5], [60, 5], [60.1, 6], [77, 6], [77.1, 7], [89, 7], [89.1, 8], [96, 8], [96.1, 9]]
+  .forEach(([p, g]) => eq(`누적비율 ${p}% → ${g}등급`, U.inhaPctGrade(p), g));
+
+section('25-d. 성취도 분포비율 → 과목등급');
+/* A 30 · B 50 · C 20 → 누적 A 30 · B 80 · C 100
+     A : 1 + 30/100               = 1.30
+     B : (30%→4등급) + 80/100     = 4.80
+     C : (80%→7등급) + 100/100    = 8.00                                   */
+const D1 = { A: 30, B: 50, C: 20 };
+eq('A → 1 + 0.30 = 1.3', U.inhaDistGrade('A', D1), 1.3);
+eq('B → 4 + 0.80 = 4.8', U.inhaDistGrade('B', D1), 4.8);
+eq('C → 7 + 1.00 = 8', U.inhaDistGrade('C', D1), 8);
+/* A가 아주 흔한 과목이면 A라도 등급이 나빠진다 */
+const D2 = { A: 75.7, B: 20.9, C: 3.5 };
+eq('A 75.7% 과목의 A → 1.757 → 1.76', U.inhaDistGrade('A', D2), 1.76);
+eq('  B → (75.7%→6등급) + 96.6/100 = 6.97', U.inhaDistGrade('B', D2), 6.97);
+eq('  C → (96.6%→9등급) + 100/100 = 10', U.inhaDistGrade('C', D2), 10);
+/* A가 드문 과목이면 A가 1등급에 가깝다 */
+eq('A 4% 과목의 A → 1.04', U.inhaDistGrade('A', { A: 4, B: 40, C: 56 }), 1.04);
+eq('분포가 없으면 등급도 없음', U.inhaDistGrade('A', null), null);
+eq('A · B · C 밖의 성취도는 산출 안 함', U.inhaDistGrade('D', D1), null);
+
+section('25-e. 과목등급 산출 우선순위');
+const iv = o => U.evalRecord(rec(Object.assign({ credit: 3 }, o)), IH, OPT);
+eq('석차등급이 있으면 그대로 쓴다',
+   iv({ category: '국어', subject: '국어', grade: 3, raw: 90, avg: 60, std: 10 }).use, 3);
+eq('  근거 표시', iv({ category: '국어', subject: '국어', grade: 3 }).basis, '3등급');
+eq('석차등급이 없고 표준편차가 있으면 Z점수로',
+   iv({ year: 3, category: '과학', subject: '물리학Ⅱ', ach: 'A', raw: 95, avg: 70, std: 12 }).use, 1);
+eq('  근거 표시 (Z 2.08 → 1등급)',
+   iv({ year: 3, category: '과학', subject: '물리학Ⅱ', ach: 'A', raw: 95, avg: 70, std: 12 }).basis,
+   'Z 2.08 → 1등급');
+eq('표준편차가 없고 분포비율이 있으면 누적비율로',
+   iv({ year: 3, category: '수학', subject: '기하', ach: 'B', dist: D1 }).use, 4.8);
+eq('둘 다 없으면 제외',
+   iv({ year: 3, category: '체육', subject: '운동과 건강', ach: 'A' }).reason,
+   '성취도 A · 표준편차 · 분포비율 모두 없음');
+eq('이수(P) 과목은 제외',
+   iv({ category: '교양', subject: '환경', ach: 'P' }).reason, '이수(P) 과목');
+eq('전 과목 반영이라 제2외국어도 들어온다',
+   iv({ category: '제2외국어', subject: '일본어Ⅰ', grade: 5 }).included, true);
+eq('  기술·가정도 들어온다',
+   iv({ category: '기술・가정', subject: '정보', grade: 4 }).included, true);
+
+section('25-f. 종합 시나리오 (손계산 대조)');
+/*  1-1  국어 4단위 3등급 · 수학 4단위 4등급     → 28/8 = 3.5
+    2-1  문학 4단위 2등급 · 영어Ⅰ 4단위 1등급    → 12/8 = 1.5   ← 최우수
+    3-1  기하 3단위 A(분포 30/50/20 → 1.3)
+         물리학Ⅱ 3단위 B(→ 4.8)                → 18.3/6 = 3.05
+    환산 = 25 × (9 − 1.5) = 187.5, + 출결 20 = 207.5 / 220                 */
+const I_STU = [
+  rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 4, grade: 3 }),
+  rec({ year: 1, sem: 1, category: '수학', subject: '수학', credit: 4, grade: 4 }),
+  rec({ year: 2, sem: 1, category: '국어', subject: '문학', credit: 4, grade: 2 }),
+  rec({ year: 2, sem: 1, category: '영어', subject: '영어Ⅰ', credit: 4, grade: 1 }),
+  rec({ year: 3, sem: 1, category: '수학', subject: '기하', credit: 3, ach: 'A', dist: D1 }),
+  rec({ year: 3, sem: 1, category: '과학', subject: '물리학Ⅱ', credit: 3, ach: 'B', dist: D1 }),
+  rec({ year: 2, sem: 2, category: '체육', subject: '운동과 건강', credit: 2, ach: 'A' })
+];
+const ih = U.computeUniv(I_STU, IH, OPT);
+const sm = k => ih.semesters.filter(x => x.year + '-' + x.sem === k)[0];
+near('1-1 학기등급 = 28/8', sm('1-1').grade, 3.5);
+near('2-1 학기등급 = 12/8', sm('2-1').grade, 1.5);
+near('3-1 학기등급 = 18.3/6', sm('3-1').grade, 3.05);
+eq('과목이 없는 학기는 산출 불가', sm('1-2').grade, null);
+eq('최우수 학기는 2-1', ih.bestSem.label, '2학년 1학기');
+eq('  체육은 산출 자료가 없어 제외',
+   ih.excluded.filter(x => x.subject === '운동과 건강').length, 1);
+near('학기등급 1.5', ih.semGrade, 1.5);
+near('환산점수 = 25 × (9 − 1.5) = 187.5', ih.gradeScore, 187.5);
+eq('출결 가산점은 결석 0일 만점 20', ih.attendScore, 20);
+near('총점 = 187.5 + 20 = 207.5', ih.score, 207.5);
+eq('총점 만점 220', ih.scoreMax, 220);
+eq('반영 과목은 최우수 학기 2과목뿐', ih.included.length, 2);
+eq('  반영 단위도 최우수 학기 기준 8단위', ih.credits, 8);
+eq('나머지 학기 과목은 otherItems로 남긴다', ih.otherItems.length, 4);
+eq('환산등급 상당은 학기등급 그대로', ih.equiv, 1.5);
+/* 단순 평균등급은 전 학기 평균이라 최우수 학기보다 나쁘다 */
+const ip = U.computePlain(I_STU, OPT, IH);
+eq('단순 평균등급은 석차등급 과목만 (4과목 16학점)', ip.credits, 16);
+near('  = (12+16+8+4)/16 = 2.5', ip.gpa, 2.5);
+eq('최우수 학기가 단순 평균보다 좋다', ih.semGrade < ip.gpa, true);
+
+section('25-g. 반올림 규격');
+/* 학기등급은 소수 일곱째 자리에서 반올림 — 1/3 단위가 섞여도 자리수가 맞는다 */
+const thirds = U.computeUniv([
+  rec({ year: 1, sem: 1, category: '국어', subject: '국어', credit: 3, grade: 1 }),
+  rec({ year: 1, sem: 1, category: '수학', subject: '수학', credit: 3, grade: 2 }),
+  rec({ year: 1, sem: 1, category: '영어', subject: '영어', credit: 3, grade: 3 }),
+  rec({ year: 1, sem: 1, category: '과학', subject: '통합과학', credit: 3, grade: 3 }),
+  rec({ year: 1, sem: 1, category: '사회(역사/도덕포함)', subject: '통합사회', credit: 3, grade: 3 }),
+  rec({ year: 1, sem: 1, category: '한국사', subject: '한국사', credit: 3, grade: 2 })
+], IH, OPT);
+near('학기등급 = 42/18 = 2.333333 (소수 일곱째에서 반올림)', thirds.semGrade, 2.333333);
+near('  환산 = 25 × (9 − 2.333333) = 166.67 (소수 셋째에서 반올림)',
+     thirds.gradeScore, 166.67);
+near('  총점 = 166.67 + 20', thirds.score, 186.67);
+eq('출결 가산점표 — 0일 20 · 5일 10 · 10일 이상 0',
+   [0, 5, 10, 12].map(d => Math.max(0, IH.attend.max - d * IH.attend.perDay)).join(','),
+   '20,10,0,0');
+
 /* ═════════ 결과 ═════════ */
 console.log('\n' + '─'.repeat(60));
 if (failures.length) {
