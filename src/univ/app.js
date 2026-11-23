@@ -211,7 +211,9 @@ function renderOptions() {
 function renderVariant(sp) {
   var host = document.getElementById('optVariantWrap');
   var base = U.UNIVS[state.opt.univ];
-  if (!base || !base.variants || !base.variants.length) { host.hidden = true; return; }
+  if (!base || !base.variants || !base.variants.length) {
+    host.hidden = true; host.innerHTML = ''; return;      // 이전 대학의 선택기를 남기지 않는다
+  }
   host.hidden = false;
   host.innerHTML = '<label for="optVariant">계열 · 전형</label>' +
     '<select id="optVariant">' + base.variants.map(function (v) {
@@ -349,6 +351,16 @@ function studentHTML(r) {
       }).join('  +  ') + '  =  ' + n1(r.univ.scoreA);
       if (r.univ.penalty > 0) form += '   −  반영과목 B 감점 ' + n1(r.univ.penalty);
     }
+  } else if (sp.mode === 'bestSem') {
+    form = (r.univ.semesters || []).map(function (x) {
+      return x.label.replace('학년 ', '-').replace('학기', '') + ' ' +
+             (x.grade === null ? '—' : f2(x.grade)) + (x.chosen ? ' ← 최우수' : '');
+    }).join('   ');
+    if (r.univ.semGrade !== null)
+      form += '   ·   ' + sp.coef + ' × (' + sp.gradeBase + ' − ' + n1(r.univ.semGrade) +
+              ') = ' + n1(r.univ.gradeScore) +
+              '  +  출결 ' + n1(r.univ.attendScore) + ' (결석 0일 가정)' +
+              '  =  ' + n1(r.univ.score) + ' / ' + r.univ.scoreMax;
   } else if (sp.mode === 'best') {
     form = (r.univ.alts || []).map(function (a) {
       return a.label.replace(/ ·.*/, '') + ' ' + nAlt(a.avg) + (a.chosen ? ' ← 채택' : '');
@@ -420,6 +432,15 @@ function studentHTML(r) {
           r.univ.bCredits + '학점 중 9등급 · 성취도 C가 ' + r.univ.bBadCredits + '학점 → 감점 ' +
           n1(r.univ.penalty) + '점',
           r.univ.bItems, '반영과목 B가 없습니다.');
+  } else if (sp.mode === 'bestSem') {
+    (r.univ.semesters || []).forEach(function (x) {
+      if (!x.items.length) return;
+      sec(x.label + (x.chosen ? ' — 최우수 학기 (100% 반영)' : ''),
+          x.items.length + '과목 · ' + x.credits + '단위 · 학기등급 ' +
+          (x.grade === null ? '산출 불가' : f2(x.grade)) +
+          (x.chosen ? '' : ' · 이 학기는 반영되지 않습니다'),
+          x.items, '이 학기에 반영된 과목이 없습니다.');
+    });
   } else if (sp.mode === 'best') {
     var altT2 = (r.univ.alts || []).filter(function (a) { return a.topN; })[0];
     sec('반영 과목', r.univ.included.length + '과목' +
@@ -629,6 +650,39 @@ function factorBoxes(r, a, sp) {
         '실제 계산은 기본 ' + sp.attend.base + '점 + (1 − 미인정 결석일수 ÷ 21) × ' + sp.attend.real +
         '점이고, 미인정 지각 · 조퇴 · 결과 3회를 결석 1일로 봅니다 (질병 · 기타는 제외). ' +
         '전원 같은 값이라 <b>석차는 달라지지 않습니다</b>.');
+  } else if (sp.mode === 'bestSem') {
+    var live = (r.univ.semesters || []).filter(function (x) { return x.grade !== null; });
+    var worst = null, runner = null;
+    live.forEach(function (x) {
+      if (!worst || x.grade > worst.grade) worst = x;
+      if (!x.chosen && (!runner || x.grade < runner.grade)) runner = x;
+    });
+    h += box('최우수 학기', r.univ.bestSem ? esc(r.univ.bestSem.label) : '—', 'up',
+      live.length
+        ? '산출된 <b>' + live.length + '개 학기</b> 중 학기등급이 가장 좋은 학기 하나만 100% 반영합니다. ' +
+          (runner
+            ? '다음으로 좋은 ' + esc(runner.label) + '(' + f2(runner.grade) + '등급)보다 <b>' +
+              f2(runner.grade - r.univ.semGrade) + '등급</b> 앞서고, 점수로는 <b class="up">' +
+              n1(sp.coef * (runner.grade - r.univ.semGrade)) + '점</b> 차이입니다.'
+            : '산출된 학기가 하나뿐입니다.') +
+          (worst && worst !== r.univ.bestSem
+            ? ' 가장 나쁜 ' + esc(worst.label) + '(' + f2(worst.grade) + '등급)은 ' +
+              '<b>아예 반영되지 않습니다</b>.' : '')
+        : '학기등급을 낼 수 있는 학기가 없습니다.');
+    h += box('단순 평균등급과의 거리', f2(r.univ.semGrade) + '등급', 'num',
+      '전 학기를 평균한 단순 평균등급 <b>' + f2(r.plain.gpa) + '등급</b>과 달리, ' +
+      '이 전형은 <b>한 학기만</b> 봅니다. ' +
+      (r.plain.gpa !== null && r.univ.semGrade !== null
+        ? (r.univ.semGrade < r.plain.gpa
+            ? '최우수 학기가 평균보다 <b class="up">' + f2(r.plain.gpa - r.univ.semGrade) +
+              '등급</b> 좋아, 한 학기만 보는 규칙이 <b class="up">유리</b>하게 작용합니다.'
+            : '최우수 학기가 평균과 거의 같아 유불리가 크지 않습니다.')
+        : ''));
+    h += box('출결 가산점', n1(r.univ.attendScore), '',
+      '생기부 교과학습발달상황에는 출결 자료가 없어 <b>결석 0일(가산점 만점 ' + sp.attend.max +
+      '점)</b>으로 뒀습니다. 미인정 결석 1일마다 ' + sp.attend.perDay + '점씩 깎이고 ' +
+      sp.attend.capDays + '일 이상이면 0점이며, 미인정 지각 · 조퇴 · 결과는 3회를 1일로 셉니다. ' +
+      '전원 같은 값이라 <b>석차는 달라지지 않습니다</b>.');
   } else if (sp.creditFloor) {
     if (r.univ.subs) {
       var lost = (r.univ.subs || []).filter(function (o) { return !o.chosen && o.score !== null; })[0];
@@ -798,7 +852,7 @@ function renderRank() {
   var hasTB = !!(sp.tiebreakers && sp.tiebreakers.length);
   var upN = res.rows.filter(function (r) { return r.verdict.tag === 'up'; }).length;
   var dnN = res.rows.filter(function (r) { return r.verdict.tag === 'down'; }).length;
-  var showEquiv = sp.equivScale != null;
+  var showEquiv = sp.equivScale != null || sp.equivOf != null;
 
   var h = '<p class="footnote" style="margin:0 0 14px">모집단 ' + res.rows.length + '명 · ' +
     esc(sp.short) + ' 환산에서 백분위가 오른 학생 <b class="up">' + upN + '명</b>, 내린 학생 <b class="down">' +
